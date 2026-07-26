@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Regístrate en Brasa Points — Brasaland</title>
+  <meta
+    name="description"
+    content="Regístrate en Brasa Points, el programa de fidelización digital de Brasaland, y empieza a acumular puntos en cada visita."
+  />
+  <link rel="icon" type="image/png" href="https://placehold.co/640x420/c2410c/fff7ed?text=Brasaland" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-gray-900 antialiased">
+
+  <header class="border-b border-gray-200">
+    <nav aria-label="Navegación principal" class="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
+      <a href="index.html" class="text-xl font-extrabold tracking-tight text-orange-700">Brasaland</a>
+      <a href="index.html" class="text-sm font-medium text-gray-600 hover:text-orange-700">← Volver al inicio</a>
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-xl px-4 py-12 sm:py-16">
+    <div id="form-wrapper">
+      <h1 class="text-3xl font-extrabold sm:text-4xl">Únete a Brasa Points</h1>
+      <p class="mt-4 text-gray-600">
+        Brasa Points está diseñado para clientes mayores de 18 años que quieren acumular puntos con sus
+        visitas. Este no es un formulario de reservas ni de pedidos en línea.
+      </p>
+
+      <form id="brasa-points-form" novalidate class="mt-10 space-y-6">
+
+        <!-- Full name -->
+        <div>
+          <label for="fullName" class="block text-sm font-medium">Nombre completo *</label>
+          <input
+            type="text" id="fullName" name="fullName" required
+            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600"
+            aria-describedby="fullName-error"
+          />
+          <p id="fullName-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- Email -->
+        <div>
+          <label for="email" class="block text-sm font-medium">Email *</label>
+          <input
+            type="email" id="email" name="email" required
+            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600"
+            aria-describedby="email-error"
+          />
+          <p id="email-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- Phone -->
+        <div>
+          <label for="phone" class="block text-sm font-medium">Teléfono *</label>
+          <input
+            type="tel" id="phone" name="phone" required placeholder="+57 300 123 4567"
+            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600"
+            aria-describedby="phone-error"
+          />
+          <p id="phone-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- Country -->
+        <div>
+          <label for="country" class="block text-sm font-medium">País *</label>
+          <select
+            id="country" name="country" required
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600"
+            aria-describedby="country-error"
+          >
+            <option value="">Selecciona tu país</option>
+            <option value="Colombia">Colombia</option>
+            <option value="Estados Unidos">Estados Unidos</option>
+          </select>
+          <p id="country-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- City -->
+        <div>
+          <label for="city" class="block text-sm font-medium">Ciudad *</label>
+          <select
+            id="city" name="city" required disabled
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600 disabled:bg-gray-100"
+            aria-describedby="city-error"
+          >
+            <option value="">Selecciona primero tu país</option>
+          </select>
+          <p id="city-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- Favorite location -->
+        <div>
+          <label for="favoriteLocation" class="block text-sm font-medium">Ubicación favorita de Brasaland</label>
+          <select
+            id="favoriteLocation" name="favoriteLocation" disabled
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600 disabled:bg-gray-100"
+          >
+            <option value="">Selecciona primero tu ciudad</option>
+          </select>
+        </div>
+
+        <!-- Dietary preferences -->
+        <fieldset>
+          <legend class="text-sm font-medium">Preferencias alimentarias</legend>
+          <div class="mt-2 space-y-2">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" name="dietaryPreferences" value="Sin restricciones" class="rounded border-gray-300 text-orange-700 focus:ring-orange-600" />
+              Sin restricciones
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" name="dietaryPreferences" value="Vegetariano" class="rounded border-gray-300 text-orange-700 focus:ring-orange-600" />
+              Vegetariano
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" name="dietaryPreferences" value="Sin gluten" class="rounded border-gray-300 text-orange-700 focus:ring-orange-600" />
+              Sin gluten
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" name="dietaryPreferences" value="Otro" class="rounded border-gray-300 text-orange-700 focus:ring-orange-600" />
+              Otro
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- How did you hear about us -->
+        <div>
+          <label for="howHeard" class="block text-sm font-medium">¿Cómo nos conociste? *</label>
+          <select
+            id="howHeard" name="howHeard" required
+            class="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600"
+            aria-describedby="howHeard-error"
+          >
+            <option value="">Selecciona una opción</option>
+            <option value="Redes sociales">Redes sociales</option>
+            <option value="Recomendación">Recomendación</option>
+            <option value="Pasando por el local">Pasando por el local</option>
+            <option value="Búsqueda en internet">Búsqueda en internet</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <p id="howHeard-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- Date of birth -->
+        <div>
+          <label for="birthdate" class="block text-sm font-medium">Fecha de nacimiento *</label>
+          <input
+            type="date" id="birthdate" name="birthdate" required
+            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-600"
+            aria-describedby="birthdate-error"
+          />
+          <p id="birthdate-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- Accept terms -->
+        <div>
+          <label class="flex items-start gap-2">
+            <input
+              type="checkbox" id="acceptTerms" name="acceptTerms" required
+              class="mt-1 rounded border-gray-300 text-orange-700 focus:ring-orange-600"
+              aria-describedby="acceptTerms-error"
+            />
+            <span class="text-sm">Acepto los términos del programa Brasa Points *</span>
+          </label>
+          <p id="acceptTerms-error" class="mt-1 hidden text-sm text-red-600" aria-live="polite"></p>
+        </div>
+
+        <!-- Wants offers -->
+        <div>
+          <label class="flex items-start gap-2">
+            <input
+              type="checkbox" id="wantsOffers" name="wantsOffers"
+              class="mt-1 rounded border-gray-300 text-orange-700 focus:ring-orange-600"
+            />
+            <span class="text-sm">Quiero recibir ofertas por email</span>
+          </label>
+        </div>
+
+        <div class="flex flex-col gap-3 sm:flex-row-reverse">
+          <button
+            type="submit"
+            class="w-full rounded-md bg-orange-700 py-3 text-base font-semibold text-white shadow-md transition hover:bg-orange-800"
+          >
+            Registrarme en Brasa Points
+          </button>
+          <button
+            type="reset"
+            class="w-full rounded-md border border-gray-300 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-50"
+          >
+            Limpiar formulario
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Success message -->
+    <div id="success-message" class="hidden text-center" role="status" aria-live="polite">
+      <h2 class="text-2xl font-bold text-orange-700">¡Bienvenido a Brasa Points!</h2>
+      <p class="mt-4 text-gray-700">
+        Tu registro ha sido exitoso. Recibirás un email de confirmación en los próximos minutos con los
+        detalles de tu cuenta y cómo empezar a acumular puntos.
+      </p>
+      <p class="mt-4 text-gray-700">
+        ¡Ya puedes disfrutar de tus beneficios en cualquiera de nuestras 14 ubicaciones!
+      </p>
+      <a href="index.html" class="mt-8 inline-block rounded-full bg-orange-700 px-8 py-3 font-semibold text-white hover:bg-orange-800">
+        Volver al inicio
+      </a>
+    </div>
+  </main>
+
+  <footer class="border-t border-gray-200 py-8 text-center text-sm text-gray-500">
+    © 2025 Brasaland. Todos los derechos reservados.
+  </footer>
+
+  <script src="validation.js"></script>
+</body>
+</html>
