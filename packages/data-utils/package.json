@@ -1,0 +1,18 @@
+{
+  "name": "@repo/data-utils",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Utilidades TypeScript de procesamiento de datos para operaciones de Brasaland (Hito 2)",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx src/demo.ts",
+    "build": "tsc",
+    "serve": "http-server . -p 3000 -a 0.0.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.0",
+    "http-server": "^14.1.1"
+  }
+}

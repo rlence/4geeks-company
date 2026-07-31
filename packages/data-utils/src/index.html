@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brasaland — Panel de prueba de utilidades</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-gray-900 p-6 max-w-3xl mx-auto">
+  <h1 class="text-2xl font-bold mb-1">Brasaland — Data Utils</h1>
+  <p class="text-gray-600 mb-6">Panel manual de prueba de las utilidades del Hito 2 (Fundamentos de Programación).</p>
+
+  <section class="flex flex-wrap gap-2 mb-6">
+    <button id="btn-filter" class="bg-orange-700 hover:bg-orange-800 text-white px-4 py-2 rounded text-sm">
+      Filtrar ventas por locación
+    </button>
+    <button id="btn-sort" class="bg-orange-700 hover:bg-orange-800 text-white px-4 py-2 rounded text-sm">
+      Ordenar locaciones por capacidad
+    </button>
+    <button id="btn-binary-search" class="bg-orange-700 hover:bg-orange-800 text-white px-4 py-2 rounded text-sm">
+      Búsqueda binaria por capacidad
+    </button>
+    <button id="btn-rank" class="bg-orange-700 hover:bg-orange-800 text-white px-4 py-2 rounded text-sm">
+      Ranking de performance
+    </button>
+    <button id="btn-top-items" class="bg-orange-700 hover:bg-orange-800 text-white px-4 py-2 rounded text-sm">
+      Top ítems vendidos
+    </button>
+    <button id="btn-country" class="bg-orange-700 hover:bg-orange-800 text-white px-4 py-2 rounded text-sm">
+      Comparación por país
+    </button>
+    <button id="btn-validate" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded text-sm">
+      Validar ítem inválido
+    </button>
+  </section>
+
+  <pre id="output" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap min-h-[8rem]">Haz clic en un botón para ver el resultado aquí.</pre>
+
+  <script type="module" src="../dist/browser.js"></script>
+</body>
+</html>
