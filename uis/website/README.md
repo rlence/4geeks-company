@@ -1,36 +1,51 @@
-# Brasaland — Sitio Web Público (Hito 1)
+# Brasaland — Sitio Web Público
 
-Landing page pública + formulario de registro al programa de fidelización "Brasa Points".
-Ver contexto completo en [`/CONTEXT.md`](../../CONTEXT.md) y el plan en [`/context/plans/hito1.md`](../../context/plans/hito1.md).
+Landing page pública + programa de fidelización "Brasa Points". Migrado en el Hito 4 del HTML estático del Hito 1 a Next.js + TypeScript, con componentes React reutilizables.
+
+Ver contexto completo en [`/CONTEXT.md`](../../CONTEXT.md) y el plan en `context/plans/hito4.md` (fuera de este repositorio).
 
 ## Stack
 
-- HTML5 semántico, sin framework ni build step.
-- Tailwind CSS vía CDN.
-- JavaScript vanilla (sin librerías externas).
-- Un solo idioma: español.
+- Next.js (App Router) + TypeScript.
+- Tailwind CSS (vía el scaffold, no CDN).
+- Sin librerías externas de gestión de estado ni de formularios.
 
 ## Estructura
 
 ```
 uis/website/
-├── index.html        landing page
-├── application.html  formulario de registro Brasa Points
-├── validation.js       validaciones y campos país→ciudad→ubicación dependientes
-└── README.md
+└── src/
+    ├── app/
+    │   ├── layout.tsx          # metadata, JSON-LD de Restaurant
+    │   ├── page.tsx             # "/" — landing pública
+    │   └── brasa-points/
+    │       └── page.tsx         # "/brasa-points" — registro al programa de fidelización
+    ├── components/
+    │   ├── NavBar.tsx
+    │   ├── Hero.tsx
+    │   ├── OurStory.tsx
+    │   ├── WhatMakesUsUnique.tsx
+    │   ├── Locations.tsx
+    │   ├── Menu.tsx
+    │   ├── BrasaPointsTeaser.tsx
+    │   ├── Contact.tsx
+    │   ├── Footer.tsx
+    │   └── BrasaPointsForm.tsx  # "use client" — selects dependientes país→ciudad→ubicación + validación
+    └── lib/
+        └── formOptions.ts        # datos y validadores del formulario Brasa Points
 ```
 
-## Cómo levantarlo (compatible con Codespaces)
-
-Desde la raíz del repositorio:
+## Cómo levantarlo
 
 ```bash
-npx http-server uis/website -p 3000 -a 0.0.0.0
+cd uis/website
+npm install
+npm run dev
 ```
 
-Luego abre `http://localhost:3000` (o la URL/puerto reenviado por Codespaces).
+Abre [http://localhost:3000](http://localhost:3000).
 
 ## Notas
 
-- El envío del formulario es simulado: no hay backend conectado.
-- Los nombres de campos, ciudades y ubicaciones deben coincidir exactamente con `CONTEXT.md`.
+- El envío del formulario de Brasa Points sigue siendo simulado: no hay backend conectado.
+- Los nombres de campos, ciudades y ubicaciones coinciden con los del Hito 1 original.
