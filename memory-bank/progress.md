@@ -7,6 +7,15 @@
 | Hito 3 — Talent Pipeline Tracker | Completado | — | App Next.js en `uis/talent-pipeline-tracker` para gestionar candidaturas de selección de personal, consumiendo la API REST del curso. |
 | Hito 4 — Ingeniería impulsada por IA | Completado | 2026-08-06 | Infraestructura de agentes (`memory-bank/`, `AGENTS.md`, `.agents/`) + migración de `uis/website` a Next.js + creación de `uis/backoffice` importando `packages/data-utils`. |
 | Project 1 — Directorio de Proveedores | Completado | 2026-08-07 | Primer backend real del monorepo: API FastAPI + TinyDB + Pydantic en `services/api` para el directorio de proveedores de Compras y Proveedores, más página `/suppliers` en `uis/backoffice`. |
+| Project 2 (AUTH-03) — Recuperación y cambio de contraseña | Completado | 2026-08-07 | Primer sistema de autenticación del monorepo: login (JWT) + forgot/reset/change-password en `services/api`, envío de email vía Resend, 4 páginas nuevas en `uis/backoffice`. |
+
+## Project 2 (AUTH-03) — detalle de lo entregado
+
+- **Prerequisito no pedido por el rule, añadido por necesidad real**: el rule asumía un sistema de autenticación ya funcionando, pero no existía ninguno en el monorepo (verificado en todas las ramas). Se añadió lo mínimo: modelo `User`, hashing con `bcrypt`, `POST /auth/login` (JWT de sesión) y página `/login`. Usuarios de prueba seedeados (`felipe.guerrero@brasaland.com`, `jake.morrison@brasaland.com`, password `brasaland2026`), sin endpoint/página de registro (el rule no lo evalúa).
+- `services/api`: `config.py` (carga `.env` con `python-dotenv`), `auth.py` (hashing + JWT + dependencia `get_current_user`), `mail.py` (Resend vía `httpx`, plantilla HTML inline), `routes/auth.py` con 4 endpoints (`login`, `forgot-password`, `reset-password`, `change-password`). Token de sesión = JWT (24h); token de reset = cadena aleatoria hasheada (`sha256`) en TinyDB con expiración de 30 min e invalidación tras un solo uso (`used=True`).
+- `uis/backoffice`: `/login`, `/forgot-password`, `/reset-password` (lee `token` de la URL), `/account/change-password` — las 4 páginas con estado explícito `idle/submitting/success/error` en el `onSubmit` (variante del patrón de `frontend-fetch-pattern.md` para envíos de formulario, no fetch-on-mount). Sesión en `localStorage` (`lib/session.ts`).
+- Verificado end-to-end con Playwright headless: login, cambio de contraseña autenticado (rechazo de contraseña actual incorrecta + éxito), flujo completo de olvido (email real recibido vía Resend, confirmación fija para email existente e inexistente, token inválido con error + enlace de vuelta, token válido con reset + redirección a `/login` + login con la nueva contraseña). Build y lint de `uis/backoffice` en verde.
+- Servicio de email elegido: **Resend** (remitente de onboarding, sin dominio propio necesario en dev). Variable de entorno: `RESEND_API_KEY` en `services/api/.env` (nunca commiteada).
 
 ## Project 1 — detalle de lo entregado
 
@@ -26,5 +35,5 @@
 
 ## Próximos pasos
 
-- Abrir PR `project-1-supplier-directory` → `main` con capturas de `uv run seed`, un endpoint filtrado en Swagger y el listado del frontend con filtro aplicado.
-- Futuros proyectos: el resto de las funcionalidades de Operaciones/Formación descritas en `projectbrief.md`, ahora con `services/api` ya como precedente de backend real en el monorepo.
+- Abrir PR `feature/password-reset` → `main` con capturas del email real recibido, Swagger de `reset-password` devolviendo 400 en un token reusado, y el flujo de `/account/change-password`.
+- Futuros proyectos: el resto de las funcionalidades de Operaciones/Formación descritas en `projectbrief.md`, ahora con auth y backend real ya como precedente en el monorepo. Si en el futuro se necesita alta de usuarios desde el frontend, `POST /auth/register` no existe todavía — es una decisión de alcance nueva.

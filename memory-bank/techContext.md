@@ -21,7 +21,16 @@ No hay workspace runner configurado en la raíz (sin `npm workspaces` ni `turbor
 - **`uis/talent-pipeline-tracker`** (Hito 3, entregado — no modificar sin confirmación): Next.js App Router + TypeScript + Tailwind, consume la API REST del curso (`playground.4geeks.com/tracker/api/v1`). Fija el patrón de referencia para toda futura app en `uis/`: sin librerías de estado externas (Redux/Zustand/Jotai), estado de fetch explícito `"loading" | "success" | "error"`, `AbortController` en cada `useEffect` de fetch, filtros en la URL vía `useSearchParams`.
 - **`uis/website`** (Hito 1 → migrado en Hito 4): landing pública + formulario de fidelización "Brasa Points". Antes de Hito 4 era HTML estático + Tailwind CDN + JS vanilla; a partir de Hito 4 es Next.js + TypeScript con componentes reutilizables.
 - **`uis/backoffice`** (Hito 4, extendida en Project 1): app interna, layout propio, importa `packages/data-utils` en `/` y consume `services/api` en `/suppliers` (directorio de proveedores).
-- **`services/api`** (Project 1): primer backend Python del monorepo. FastAPI + TinyDB (`db.json`, gitignored — se regenera con `uv run seed`) + Pydantic v2, gestionado con `uv`. Estructura flat (`main.py`, `models.py`, `database.py`, `seed.py`, `routes/suppliers.py`) — no un layout `src/<paquete>`.
+- **`services/api`** (Project 1, extendido en Project 2): primer backend Python del monorepo. FastAPI + TinyDB (`db.json`, gitignored — se regenera con `uv run seed`) + Pydantic v2, gestionado con `uv`. Estructura flat (`main.py`, `models.py`, `database.py`, `seed.py`, `config.py`, `auth.py`, `mail.py`, `routes/suppliers.py`, `routes/auth.py`) — no un layout `src/<paquete>`.
+
+## Autenticación (Project 2 — AUTH-03)
+
+- `services/api` tiene ahora un sistema mínimo de auth: `users_table` (TinyDB), password hasheado con `bcrypt`, sesión vía JWT (`pyjwt`, `HS256`, 24h) creado en `POST /auth/login`. La dependencia `get_current_user` (`auth.py`) lee el header `Authorization: Bearer <token>` y protege `POST /auth/change-password`.
+- Restablecimiento de contraseña (`forgot-password` / `reset-password`): token opaco (`secrets.token_urlsafe`), guardado **hasheado** (`sha256`) en `password_reset_tokens_table` junto con `expires_at` (30 min) y `used`. No es JWT — la invalidación tras un solo uso es trivial con TinyDB y no requiere una blocklist.
+- Envío de email: **Resend**, vía `httpx` directo a su API REST (`mail.py`), sin SDK. Requiere `RESEND_API_KEY` en `services/api/.env` (gitignored) — la cuenta gratuita/trial de Resend solo permite enviar a la dirección con la que te registraste, salvo que verifiques un dominio propio.
+- `services/api/.env` (nuevo, antes el servicio no tenía secretos): `JWT_SECRET_KEY`, `ACCESS_TOKEN_TTL_MINUTES`, `RESET_TOKEN_TTL_MINUTES`, `FRONTEND_URL`, `RESEND_API_KEY`, `EMAIL_FROM`. Cargado con `python-dotenv` en `config.py`.
+- Frontend: sesión guardada en `localStorage` (`uis/backoffice/src/lib/session.ts`) — no hay cookie httpOnly ni servidor de sesiones en ningún otro punto del monorepo, se mantiene la misma simplicidad.
+- No existe `POST /auth/register` ni página de registro: los usuarios se seedean (`seed.py`, `USERS_SEED`) igual que los proveedores de Project 1.
 
 ## `uv run seed` sin layout `src/` (Project 1)
 

@@ -67,3 +67,32 @@ class SupplierRateUpdate(BaseModel):
 
 class SupplierStatusUpdate(BaseModel):
     status: SupplierStatus
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)

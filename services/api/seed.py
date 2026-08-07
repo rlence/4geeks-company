@@ -1,6 +1,12 @@
 from datetime import datetime, timezone
 
-from database import suppliers_table
+from auth import hash_password
+from database import suppliers_table, users_table
+
+USERS_SEED = [
+    {"email": "felipe.guerrero@brasaland.com", "password": "brasaland2026"},
+    {"email": "jake.morrison@brasaland.com", "password": "brasaland2026"},
+]
 
 SUPPLIERS_SEED = [
     {
@@ -151,7 +157,7 @@ SUPPLIERS_SEED = [
 ]
 
 
-def main() -> None:
+def seed_suppliers() -> None:
     if len(suppliers_table) > 0:
         print(
             f"La base de datos ya tiene {len(suppliers_table)} proveedores. "
@@ -164,6 +170,27 @@ def main() -> None:
         suppliers_table.insert({**supplier, "updated_at": now})
 
     print(f"Seeder completado: {len(SUPPLIERS_SEED)} proveedores insertados.")
+
+
+def seed_users() -> None:
+    if len(users_table) > 0:
+        print(
+            f"La base de datos ya tiene {len(users_table)} usuarios. "
+            "Seeder omitido para no duplicar registros."
+        )
+        return
+
+    for user in USERS_SEED:
+        users_table.insert(
+            {"email": user["email"], "hashed_password": hash_password(user["password"])}
+        )
+
+    print(f"Seeder completado: {len(USERS_SEED)} usuarios insertados.")
+
+
+def main() -> None:
+    seed_suppliers()
+    seed_users()
 
 
 if __name__ == "__main__":
