@@ -1,0 +1,35 @@
+services:
+  interfaces:
+    build:
+      context: ./uis
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./uis/website:/app/uis/website
+      - ./uis/backoffice:/app/uis/backoffice
+      - /app/uis/website/node_modules
+      - /app/uis/backoffice/node_modules
+      # backoffice importa packages/data-utils (Hito 2) por ruta relativa fija — ver
+      # .agents/rules/monorepo-imports.md. Solo lectura: esa app está congelada.
+      - ./packages:/app/packages:ro
+    env_file:
+      - .env
+    networks:
+      - brasaland-net
+
+  api:
+    build:
+      context: ./services
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/api:/app
+    env_file:
+      - .env
+    networks:
+      - brasaland-net
+
+networks:
+  brasaland-net:
+    driver: bridge
