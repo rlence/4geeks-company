@@ -1,234 +1,139 @@
-# CONTEXT — Directorio de Proveedores · Brasaland
+# CONTEXT — Hito 5: Gestión de Inventario Backend
+## Empresa: Brasaland
 
-> **Milestone:** 09 — Lightweight Storage API
-> **Ruta en el repositorio:** `09-lightweight-storage/CONTEXT-brasaland.md`
-
----
-
-## Tu empresa
-
-Eres parte del equipo **Brasaland Digital**, la unidad tecnológica interna de Brasaland, una cadena de restaurantes de comida a la brasa con **14 locales** en Colombia y Florida. Tu tech lead es **Nicolás Park**, CTO, y quien ha solicitado este proyecto es **Lucía Fernández**, Procurement Manager.
-
-Brasaland trabaja con alrededor de **20 proveedores activos** distribuidos entre Colombia y Florida. Hasta ahora, Lucía gestiona el directorio en una hoja de cálculo compartida por correo. Cada vez que cambia la tarifa de un proveedor o hay que incorporar uno nuevo, hay tres versiones del fichero en circulación y nadie sabe cuál es la oficial. Este proyecto crea la fuente de verdad única.
+**Ruta:** `05-backend-inventory-orm/CONTEXT-brasaland.es.md`
 
 ---
 
-## Modelo de proveedor
+## Tu Empresa
 
-Cada proveedor en el directorio de Brasaland tiene la siguiente estructura:
+**Brasaland** es una cadena de restaurantes de cocina a la brasa con 14 locales repartidos entre Colombia y Florida. La empresa procesa cientos de órdenes de ingredientes cada semana: carne, verduras, salsas, bebidas, envases y productos de limpieza llegan de unos 20 proveedores en ambos países, y esos mismos ingredientes salen de cada cocina cada día durante la preparación y — inevitablemente — en forma de merma.
 
-| Campo           | Tipo                                  | Descripción                                              |
-| --------------- | -------------------------------------- | ---------------------------------------------------------- |
-| `name`          | string, requerido                     | Nombre comercial del proveedor                           |
-| `country`       | string, requerido                     | País de operación: `"Colombia"` o `"USA"`                |
-| `categories`    | lista de strings, requerido, mínimo 1 | Categorías de producto que suministra (ver lista válida) |
-| `rate_per_unit` | float, requerido, > 0                 | Tarifa vigente por unidad en la moneda del país          |
-| `currency`      | string, requerido                     | `"COP"` para Colombia, `"USD"` para USA                  |
-| `updated_at`    | datetime, generado por el sistema     | Timestamp de la última actualización de tarifa           |
-| `status`        | string, requerido                     | `"active"` o `"suspended"`                               |
-| `contact_email` | string, opcional                      | Email de contacto del proveedor                          |
-| `notes`         | string, opcional                      | Observaciones internas del equipo de compras             |
+Hasta ahora, el stock de ingredientes en cada local lo ha gestionado el encargado local por WhatsApp y hojas de cálculo. **Nicolás Park (CTO)** ha asignado a tu equipo la construcción de la capa centralizada de gestión de inventario de la plataforma Brasaland Digital. Es la primera vez que Brasaland tendrá una única fuente de verdad sobre qué hay en stock en toda la cadena.
 
-### Categorías válidas
+> **De Nicolás (CTO) — Ticket Notion #BRD-0512:**
+> "El equipo de operaciones está ciego con los ingredientes. Los supervisores de Felipe no saben cuánta carne hay disponible en Miami hasta que llaman a la cocina. Construid la API de inventario. Las entradas de ingredientes vienen de entregas de proveedores; las salidas vienen de registros de consumo e informes de merma. El stock debe ser de solo lectura — siempre es el neto de lo que llegó menos lo que se usó. Todos los endpoints bajo `/inventory`. Consultad la especificación de entidades a continuación."
 
-```python
-VALID_CATEGORIES = [
-    "carne",
-    "verduras_y_hortalizas",
-    "salsas_y_condimentos",
-    "bebidas",
-    "packaging",
-    "productos_limpieza",
-    "lacteos",
-    "carbon_y_combustible"
-]
+---
+
+## Nombres de Entidades y Especificación de Campos
+
+Usa estos nombres exactamente en tus modelos, schemas y respuestas de la API.
+
+### `Ingredient` (equivale a `Product` del README)
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `id` | `int` (PK) | Autoincremental |
+| `name` | `str` | Ej.: `"Falda de ternera"`, `"Salsa de la casa"`, `"Caja para llevar (M)"` |
+| `sku` | `str` | Código interno único, ej.: `"BRS-BEEF-001"` |
+| `unit` | `str` | Unidad de medida: `"kg"`, `"litro"`, `"unidad"` |
+| `category` | `str` | `"meat"`, `"produce"`, `"sauce"`, `"beverage"`, `"packaging"`, `"cleaning"` |
+| `country` | `str` | `"CO"` (Colombia) o `"US"` (Estados Unidos) |
+| `current_stock` | `float` | **Campo calculado — no almacenado.** Siempre se deriva de las órdenes. Incluir solo en el schema de respuesta. |
+
+### `IngredientEntry` (equivale a `InboundOrder` del README)
+
+Una entrega de ingredientes recibida de un proveedor.
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `id` | `int` (PK) | Autoincremental |
+| `ingredient_id` | `int` (FK → Ingredient) | |
+| `quantity` | `float` | Cantidad recibida en la unidad del ingrediente |
+| `supplier_name` | `str` | Nombre del proveedor de esta entrega |
+| `location_id` | `int` | Local receptor (1–14). No es FK — los datos de locales se gestionan por separado. |
+| `created_at` | `datetime` | Se establece automáticamente al crear |
+| `user_uuid` | `str` | UUID del supervisor de operaciones que registró la entrega (de TinyDB) |
+
+### `IngredientExit` (equivale a `OutboundOrder` del README)
+
+Un registro de consumo de ingredientes o informe de merma.
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `id` | `int` (PK) | Autoincremental |
+| `ingredient_id` | `int` (FK → Ingredient) | |
+| `quantity` | `float` | Cantidad consumida o mermada |
+| `reason` | `str` | `"consumption"` (consumo) o `"waste"` (merma) |
+| `location_id` | `int` | Local donde ocurrió la salida |
+| `created_at` | `datetime` | Se establece automáticamente al crear |
+| `user_uuid` | `str` | UUID del miembro del personal que registró la salida (de TinyDB) |
+
+---
+
+## Router de la API
+
+Todos los endpoints deben registrarse bajo el prefijo `/inventory`. El archivo del router se encuentra en `services/routers/inventory.py`.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/inventory/products` | Lista todos los ingredientes con `current_stock` |
+| `POST` | `/inventory/products` | Crea un nuevo ingrediente |
+| `GET` | `/inventory/products/{id}` | Obtiene un ingrediente con su stock actual |
+| `POST` | `/inventory/orders/inbound` | Registra una entrega de proveedor (`IngredientEntry`) |
+| `POST` | `/inventory/orders/outbound` | Registra un consumo o merma (`IngredientExit`) |
+| `GET` | `/inventory/orders` | Lista todas las entradas y salidas con datos del ingrediente |
+
+---
+
+## Reglas de Negocio
+
+1. **`current_stock` siempre se calcula**, nunca se almacena. Para cualquier ingrediente: `current_stock = SUMA(IngredientEntry.quantity) − SUMA(IngredientExit.quantity)`.
+2. **No se puede registrar una salida si resultaría en stock negativo.** Devuelve `HTTP 400` con el mensaje: `"Insufficient stock for ingredient '{name}'. Available: {available}, requested: {requested}."`. Rechazar antes de escribir.
+3. **Los ingredientes de Colombia y EE.UU. coexisten en la misma tabla.** Usa el campo `country` para filtrar por mercado cuando sea necesario.
+4. **Sin tabla de usuarios en Supabase.** Los campos `user_uuid` referencian usuarios de TinyDB. No crear un modelo User en SQLModel.
+5. **Los IDs de locales van del 1 al 14.** No son claves foráneas en este hito — almacenar solo el entero.
+
+---
+
+## Datos Semilla
+
+Crea los siguientes registros al configurar tu base de datos de desarrollo local. Deben estar presentes antes de tu demo.
+
+### Ingredients (mínimo 6)
+
+| name | sku | unit | category | country |
+|------|-----|------|----------|---------|
+| Falda de ternera | BRS-BEEF-001 | kg | meat | CO |
+| Costilla de cerdo | BRS-PORK-001 | kg | meat | US |
+| Chimichurri | BRS-SAUCE-001 | litro | sauce | CO |
+| Salsa BBQ de la casa | BRS-SAUCE-002 | litro | sauce | US |
+| Yuca | BRS-PROD-001 | kg | produce | CO |
+| Caja para llevar (M) | BRS-PKG-001 | unidad | packaging | CO |
+
+### IngredientEntries (mínimo 4)
+
+Registra al menos 2 entregas para `BRS-BEEF-001` (p. ej., 50 kg y 30 kg) y 1 entrega para cada uno de otros dos ingredientes. Usa nombres de proveedor realistas: `"Carnes del Valle S.A."`, `"MiamiMeat Co."`, `"Salsas Artesanales Ltda."`.
+
+### IngredientExits (mínimo 3)
+
+Registra salidas de consumo que reduzcan el stock sin llegar a cero. Incluye al menos una salida de tipo `"waste"`. Usa valores de `user_uuid` que correspondan a usuarios existentes en tu instancia TinyDB.
+
+---
+
+## Estructura de Archivos (dentro de `services/`)
+
 ```
-
-### Estados válidos
-
-```python
-VALID_STATUSES = ["active", "suspended"]
-```
-
----
-
-## Datos iniciales del seeder
-
-El seeder debe cargar exactamente los siguientes proveedores. Son los que Lucía tiene en su hoja de cálculo actual — la que este proyecto reemplaza.
-
-```python
-SUPPLIERS_SEED = [
-    {
-        "name": "Carnes del Valle S.A.S.",
-        "country": "Colombia",
-        "categories": ["carne"],
-        "rate_per_unit": 28500.0,
-        "currency": "COP",
-        "status": "active",
-        "contact_email": "ventas@carnesdelvalle.co",
-        "notes": "Proveedor principal de res y cerdo para Medellín. Entrega martes y viernes."
-    },
-    {
-        "name": "Frigorífico Antioqueño",
-        "country": "Colombia",
-        "categories": ["carne"],
-        "rate_per_unit": 27900.0,
-        "currency": "COP",
-        "status": "active",
-        "contact_email": "pedidos@frigorificoa.co",
-        "notes": "Proveedor secundario. Usado cuando Carnes del Valle no tiene stock."
-    },
-    {
-        "name": "Verduras La Cosecha",
-        "country": "Colombia",
-        "categories": ["verduras_y_hortalizas"],
-        "rate_per_unit": 3200.0,
-        "currency": "COP",
-        "status": "active",
-        "contact_email": "lacosecha@gmail.com",
-        "notes": "Mercado mayorista de Medellín. Entrega diaria antes de las 7am."
-    },
-    {
-        "name": "Condimentos El Sabor",
-        "country": "Colombia",
-        "categories": ["salsas_y_condimentos"],
-        "rate_per_unit": 12400.0,
-        "currency": "COP",
-        "status": "active",
-        "contact_email": "info@elsabor.co"
-    },
-    {
-        "name": "Distribuidora RefriCol",
-        "country": "Colombia",
-        "categories": ["bebidas", "lacteos"],
-        "rate_per_unit": 4100.0,
-        "currency": "COP",
-        "status": "active",
-        "contact_email": "refricol.pedidos@gmail.com"
-    },
-    {
-        "name": "Empaques y Más",
-        "country": "Colombia",
-        "categories": ["packaging"],
-        "rate_per_unit": 890.0,
-        "currency": "COP",
-        "status": "active",
-        "contact_email": "ventas@empaquesymas.co",
-        "notes": "Suministra cajas, bolsas y servilletas para todos los locales de Colombia."
-    },
-    {
-        "name": "Limpiahogar Profesional",
-        "country": "Colombia",
-        "categories": ["productos_limpieza"],
-        "rate_per_unit": 7600.0,
-        "currency": "COP",
-        "status": "suspended",
-        "contact_email": "limpiahogar@promail.co",
-        "notes": "Suspendido por incumplimiento en entregas. En revisión por Lucía."
-    },
-    {
-        "name": "CarboCo",
-        "country": "Colombia",
-        "categories": ["carbon_y_combustible"],
-        "rate_per_unit": 45000.0,
-        "currency": "COP",
-        "status": "active",
-        "contact_email": "pedidos@carboco.co",
-        "notes": "Único proveedor homologado de carbón para las brasas. Contrato anual."
-    },
-    {
-        "name": "Miami Meat Distributors LLC",
-        "country": "USA",
-        "categories": ["carne"],
-        "rate_per_unit": 6.80,
-        "currency": "USD",
-        "status": "active",
-        "contact_email": "orders@miamimeat.com",
-        "notes": "Proveedor principal de carne para los locales de Florida."
-    },
-    {
-        "name": "Sunshine Produce FL",
-        "country": "USA",
-        "categories": ["verduras_y_hortalizas"],
-        "rate_per_unit": 2.15,
-        "currency": "USD",
-        "status": "active",
-        "contact_email": "sales@sunshineproduce.com"
-    },
-    {
-        "name": "Latin Flavors Inc.",
-        "country": "USA",
-        "categories": ["salsas_y_condimentos", "bebidas"],
-        "rate_per_unit": 4.50,
-        "currency": "USD",
-        "status": "active",
-        "contact_email": "orders@latinflavors.com",
-        "notes": "Importa salsas colombianas para el mercado de Florida."
-    },
-    {
-        "name": "PackRight USA",
-        "country": "USA",
-        "categories": ["packaging"],
-        "rate_per_unit": 0.35,
-        "currency": "USD",
-        "status": "active",
-        "contact_email": "info@packright.us"
-    },
-    {
-        "name": "CleanPro Florida",
-        "country": "USA",
-        "categories": ["productos_limpieza"],
-        "rate_per_unit": 12.90,
-        "currency": "USD",
-        "status": "active",
-        "contact_email": "orders@cleanproflorida.com"
-    },
-    {
-        "name": "GrillFuel Supply Co.",
-        "country": "USA",
-        "categories": ["carbon_y_combustible"],
-        "rate_per_unit": 38.50,
-        "currency": "USD",
-        "status": "active",
-        "contact_email": "supply@grillfuel.com",
-        "notes": "Proveedor de carbón para Florida. Precio sujeto a revisión trimestral."
-    },
-    {
-        "name": "Bebidas Andinas",
-        "country": "Colombia",
-        "categories": ["bebidas"],
-        "rate_per_unit": 3800.0,
-        "currency": "COP",
-        "status": "suspended",
-        "contact_email": "ventas@bebidasandinas.co",
-        "notes": "Suspendido. Precio por encima del mercado tras última renegociación."
-    }
-]
+services/
+├── main.py
+├── database.py          # Cliente TinyDB + motor SQLModel + dependencia get_db
+├── models.py            # Ingredient, IngredientEntry, IngredientExit (SQLModel)
+├── schemas.py           # Schemas Pydantic de request/response
+└── routers/
+    └── inventory.py     # APIRouter(prefix="/inventory")
 ```
 
 ---
 
-## Restricciones de negocio
+## Notas de Evaluación para Brasaland
 
-- **Moneda por país:** Un proveedor de `"Colombia"` debe tener `currency = "COP"`. Un proveedor de `"USA"` debe tener `currency = "USD"`. La API debe rechazar combinaciones inconsistentes.
-- **Categorías múltiples:** Un proveedor puede suministrar más de una categoría (por ejemplo, bebidas y lácteos). La lista `categories` debe tener al menos un elemento válido.
-- **Trazabilidad de tarifas:** Cada vez que se actualiza `rate_per_unit`, el campo `updated_at` debe registrar el timestamp exacto del cambio. Este dato es requerido por Lucía para auditorías de precios.
-- **Suspensión, no borrado:** En la operativa real de Brasaland, los proveedores no se eliminan del sistema — se suspenden. El endpoint `DELETE` existe para correcciones de datos erróneos, no como flujo habitual.
-
----
-
-## Lo que verá Lucía en el frontend
-
-La página del directorio debe permitirle a Lucía:
-
-1. Ver todos los proveedores de un vistazo, con indicación clara de cuáles están activos y cuáles suspendidos.
-2. Filtrar por país (Colombia / USA) para ver solo los proveedores relevantes a cada mercado.
-3. Filtrar por categoría para responder preguntas como "¿qué proveedores de carne tenemos activos en USA?".
-4. Registrar un proveedor nuevo desde un formulario.
-5. Actualizar la tarifa de un proveedor existente desde la interfaz.
-6. Activar o suspender un proveedor con un solo clic.
+- El evaluador creará un `IngredientExit` que supere el stock disponible y esperará `HTTP 400`.
+- El evaluador llamará a `GET /inventory/products` y verificará que `current_stock` refleja el neto de las entradas y salidas sembradas.
+- El campo `country` debe aparecer tanto en el modelo como en el schema de respuesta.
+- El campo `reason` en `IngredientExit` solo debe aceptar `"consumption"` o `"waste"`.
 
 ---
 
-_Documento interno — 4Geeks Academy · AI Engineering Track_
-_Contexto de uso exclusivo en la generación de proyectos del programa_
+_Documento interno — 4Geeks Academy · Track de Ingeniería de IA_
+_Hito 5 · Escenario Brasaland_
