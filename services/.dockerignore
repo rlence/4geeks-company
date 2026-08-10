@@ -1,0 +1,7 @@
+**/__pycache__
+**/*.pyc
+**/.env*
+api/tests
+**/*.log
+api/.venv
+api/db.json
