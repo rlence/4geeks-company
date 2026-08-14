@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from tinydb import Query
 from tinydb.table import Document
 
+from cache import TTLCache
 from database import suppliers_table
 from models import (
     Category,
@@ -15,6 +16,16 @@ from models import (
 )
 
 router = APIRouter(prefix="/suppliers", tags=["suppliers"])
+
+# Un solo namespace de caché para toda la tabla suppliers: list y detail
+# comparten instancia porque ambas dependen de los mismos datos y se
+# invalidan juntas en cualquier escritura (ver funciones de abajo). TTL
+# de 30s: es un directorio interno de Compras y Proveedores, no un feed
+# en vivo — una tarifa desactualizada por hasta 30s es aceptable, y en
+# la práctica el clear() en cada escritura hace que la ventana real de
+# staleness sea casi siempre mucho menor a los 30s.
+SUPPLIERS_CACHE_TTL_SECONDS = 30
+_suppliers_cache = TTLCache(ttl_seconds=SUPPLIERS_CACHE_TTL_SECONDS)
 
 
 def _to_supplier_out(doc: Document) -> SupplierOut:
@@ -34,6 +45,7 @@ def create_supplier(payload: SupplierCreate) -> SupplierOut:
     record = payload.model_dump(mode="json")
     record["updated_at"] = now
     doc_id = suppliers_table.insert(record)
+    _suppliers_cache.clear()
     return _to_supplier_out(suppliers_table.get(doc_id=doc_id))
 
 
@@ -41,6 +53,11 @@ def create_supplier(payload: SupplierCreate) -> SupplierOut:
 def list_suppliers(
     country: Country | None = None, category: Category | None = None
 ) -> list[SupplierOut]:
+    cache_key = ("list", country.value if country else None, category.value if category else None)
+    cached = _suppliers_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     query = Query()
     conditions = []
     if country is not None:
@@ -56,12 +73,20 @@ def list_suppliers(
             combined &= condition
         docs = suppliers_table.search(combined)
 
-    return [_to_supplier_out(doc) for doc in docs]
+    result = [_to_supplier_out(doc) for doc in docs]
+    _suppliers_cache.set(cache_key, result)
+    return result
 
 
 @router.get("/{supplier_id}", response_model=SupplierOut)
 def get_supplier(supplier_id: int) -> SupplierOut:
-    return _to_supplier_out(_get_or_404(supplier_id))
+    cache_key = ("detail", supplier_id)
+    cached = _suppliers_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    result = _to_supplier_out(_get_or_404(supplier_id))
+    _suppliers_cache.set(cache_key, result)
+    return result
 
 
 @router.patch("/{supplier_id}/rate", response_model=SupplierOut)
@@ -72,6 +97,7 @@ def update_rate(supplier_id: int, payload: SupplierRateUpdate) -> SupplierOut:
         {"rate_per_unit": payload.rate_per_unit, "updated_at": now},
         doc_ids=[supplier_id],
     )
+    _suppliers_cache.clear()
     return _to_supplier_out(suppliers_table.get(doc_id=supplier_id))
 
 
@@ -79,6 +105,7 @@ def update_rate(supplier_id: int, payload: SupplierRateUpdate) -> SupplierOut:
 def update_status(supplier_id: int, payload: SupplierStatusUpdate) -> SupplierOut:
     _get_or_404(supplier_id)
     suppliers_table.update({"status": payload.status.value}, doc_ids=[supplier_id])
+    _suppliers_cache.clear()
     return _to_supplier_out(suppliers_table.get(doc_id=supplier_id))
 
 
@@ -86,3 +113,4 @@ def update_status(supplier_id: int, payload: SupplierStatusUpdate) -> SupplierOu
 def delete_supplier(supplier_id: int) -> None:
     _get_or_404(supplier_id)
     suppliers_table.remove(doc_ids=[supplier_id])
+    _suppliers_cache.clear()

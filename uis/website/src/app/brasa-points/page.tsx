@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BrasaPointsForm } from "@/components/BrasaPointsForm";
+import { BrasaPointsForm } from "@/components/BrasaPointsFormLazy";
 
 export const metadata: Metadata = {
   title: "Regístrate en Brasa Points — Brasaland",
