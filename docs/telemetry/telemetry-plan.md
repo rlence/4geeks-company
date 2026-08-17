@@ -296,6 +296,9 @@ La arquitectura objetivo de `/inventory` (§0) pone `Ingredient`/`IngredientEntr
 - `country` no puede resolverse hoy en ningún punto del código — depende de un futuro modelo `Location` (id → país/ciudad) que no existe. El catálogo asume que existirá; hasta entonces, `country` no puede instrumentarse correctamente en los eventos de inventario.
 - `stock_waste_registered.reason` (`expired | kitchen_error | theft_suspected`) requiere un campo nuevo en `OutboundOrderForm.tsx` (`waste_reason`, condicional a `reason === "waste"`) que no existe en el formulario actual — queda como prerequisito de instrumentación, no como parte de este entregable.
 
+**Extensión aditiva — Hito 6 Parte 1 (Pipeline de Desempeño de Negocio):**
+- `unit_cost` se agregó como campo `required` a `inbound_order_created` y `stock_waste_registered` en `event-schemas.json` — el reporte semanal de costo/merma por local (`reporting.weekly_location_performance`, ver `data/pipelines/PIPELINE_DESIGN.md`) necesita un valor monetario por unidad que el catálogo original de Project 6 no capturaba. Es una extensión de un evento obligatorio existente, no un `event_type` nuevo — el envelope y el resto de `properties` no cambian. En `inbound_order_created` viaja junto a `currency`; en `stock_waste_registered` la moneda se deriva de `country` (misma convención `COUNTRY_CURRENCY` de `services/api/models.py`) en vez de duplicar el campo.
+
 ---
 
 ## 7. Referencias
