@@ -1,0 +1,351 @@
+{
+  "schemaVersion": "1.0.0",
+  "envelope": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": ["eventId", "timestamp", "sessionId", "userId", "event_type", "schemaVersion", "requestId", "properties"],
+    "additionalProperties": false,
+    "properties": {
+      "eventId": { "type": "string", "format": "uuid", "description": "UUIDv4 generado en el punto de emisión." },
+      "timestamp": { "type": "string", "format": "date-time", "description": "ISO 8601 en UTC, momento de ocurrencia (no de envío/flush)." },
+      "sessionId": { "type": "string", "format": "uuid", "description": "UUIDv4 de sesión de navegador, independiente del JWT." },
+      "userId": { "type": ["string", "null"], "description": "Claim 'sub' del JWT (id numérico como string); null en eventos no autenticados." },
+      "event_type": { "type": "string", "pattern": "^[a-z]+(_[a-z]+)*_[a-z]+$", "description": "Taxonomía entidad_acción, ej. inbound_order_created." },
+      "schemaVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+      "requestId": { "type": ["string", "null"], "description": "Correlación frontend-backend-logs; null en eventos puramente client-side." },
+      "properties": { "type": "object", "description": "Payload específico del event_type, validado contra su propertiesSchema." }
+    }
+  },
+  "events": {
+    "inbound_order_created": {
+      "classification": "obligatorio",
+      "description": "Un local registra la llegada de mercancía de un proveedor.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location_id", "country", "product_id", "product_category", "quantity", "unit", "currency", "supplier_id"],
+        "properties": {
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "country": { "type": "string", "enum": ["CO", "US"] },
+          "product_id": { "type": "integer" },
+          "product_category": { "type": "string", "enum": ["meat", "produce", "sauce", "beverage", "packaging", "cleaning"] },
+          "quantity": { "type": "number", "exclusiveMinimum": 0 },
+          "unit": { "type": "string" },
+          "currency": { "type": "string", "enum": ["COP", "USD"] },
+          "supplier_id": { "type": "integer" }
+        }
+      }
+    },
+    "outbound_order_created": {
+      "classification": "obligatorio",
+      "description": "Un local registra consumo de ingredientes en la preparación de un plato.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location_id", "country", "product_id", "product_category", "quantity", "unit", "reason"],
+        "properties": {
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "country": { "type": "string", "enum": ["CO", "US"] },
+          "product_id": { "type": "integer" },
+          "product_category": { "type": "string", "enum": ["meat", "produce", "sauce", "beverage", "packaging", "cleaning"] },
+          "quantity": { "type": "number", "exclusiveMinimum": 0 },
+          "unit": { "type": "string" },
+          "reason": { "type": "string", "enum": ["consumption", "waste"], "description": "Coincide con ExitReason del frontend (uis/backoffice/src/types/inventory.ts). Para el sub-motivo de merma ver stock_waste_registered." }
+        }
+      }
+    },
+    "stock_waste_registered": {
+      "classification": "obligatorio",
+      "description": "Un local registra merma: producto vencido, error de cocina, o pérdida/robo.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location_id", "country", "product_id", "product_category", "quantity", "unit", "reason"],
+        "properties": {
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "country": { "type": "string", "enum": ["CO", "US"] },
+          "product_id": { "type": "integer" },
+          "product_category": { "type": "string", "enum": ["meat", "produce", "sauce", "beverage", "packaging", "cleaning"] },
+          "quantity": { "type": "number", "exclusiveMinimum": 0 },
+          "unit": { "type": "string" },
+          "reason": { "type": "string", "enum": ["expired", "kitchen_error", "theft_suspected"], "description": "Requiere un campo nuevo en OutboundOrderForm.tsx (waste_reason condicional) — no existe en el código actual, ver telemetry-plan.md sección de riesgos." }
+        }
+      }
+    },
+    "stock_threshold_triggered": {
+      "classification": "obligatorio",
+      "description": "El stock de un producto cae por debajo del mínimo configurado para ese local.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location_id", "country", "product_id", "product_category", "current_stock", "threshold", "unit"],
+        "properties": {
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "country": { "type": "string", "enum": ["CO", "US"] },
+          "product_id": { "type": "integer" },
+          "product_category": { "type": "string", "enum": ["meat", "produce", "sauce", "beverage", "packaging", "cleaning"] },
+          "current_stock": { "type": "number", "minimum": 0 },
+          "threshold": { "type": "number", "exclusiveMinimum": 0 },
+          "unit": { "type": "string" }
+        }
+      }
+    },
+    "direct_stock_edit_rejected": {
+      "classification": "obligatorio",
+      "description": "Un usuario intenta modificar el stock directamente (fuera de una orden) y el sistema lo rechaza.",
+      "delivery": "stream",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location_id", "country", "product_id", "attempted_action"],
+        "properties": {
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "country": { "type": "string", "enum": ["CO", "US"] },
+          "product_id": { "type": "integer" },
+          "attempted_action": { "type": "string", "enum": ["direct_stock_write", "direct_stock_delete"] }
+        }
+      }
+    },
+    "ingredient_price_variance_detected": {
+      "classification": "obligatorio",
+      "description": "El costo unitario de una orden de entrada varía más de un umbral (ej. 10%) respecto al histórico del mismo producto/proveedor.",
+      "delivery": "stream",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location_id", "country", "product_id", "product_category", "supplier_id", "previous_unit_price", "new_unit_price", "variance_pct", "currency"],
+        "properties": {
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "country": { "type": "string", "enum": ["CO", "US"] },
+          "product_id": { "type": "integer" },
+          "product_category": { "type": "string", "enum": ["meat", "produce", "sauce", "beverage", "packaging", "cleaning"] },
+          "supplier_id": { "type": "integer" },
+          "previous_unit_price": { "type": "number", "exclusiveMinimum": 0 },
+          "new_unit_price": { "type": "number", "exclusiveMinimum": 0 },
+          "variance_pct": { "type": "number" },
+          "currency": { "type": "string", "enum": ["COP", "USD"] }
+        }
+      }
+    },
+    "inventory_order_validation_failed": {
+      "classification": "identificado",
+      "description": "El formulario de entrada/salida bloquea un envío por una validación de negocio (ej. cantidad supera el stock disponible).",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location_id", "product_id", "order_type", "reason"],
+        "properties": {
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "product_id": { "type": "integer" },
+          "order_type": { "type": "string", "enum": ["inbound", "outbound"] },
+          "reason": { "type": "string", "enum": ["quantity_exceeds_stock", "invalid_quantity", "missing_field"] }
+        }
+      }
+    },
+    "inventory_product_created": {
+      "classification": "identificado",
+      "description": "Se da de alta un ingrediente nuevo en el catálogo de productos.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["product_id", "product_category", "unit", "country"],
+        "properties": {
+          "product_id": { "type": "integer" },
+          "product_category": { "type": "string", "enum": ["meat", "produce", "sauce", "beverage", "packaging", "cleaning"] },
+          "unit": { "type": "string" },
+          "country": { "type": "string", "enum": ["CO", "US"] }
+        }
+      }
+    },
+    "login_attempt_failed": {
+      "classification": "identificado",
+      "description": "Un intento de POST /auth/login falla (credenciales inválidas o usuario inexistente — la API no distingue los dos casos por diseño de seguridad).",
+      "delivery": "stream",
+      "pii": true,
+      "piiNote": "El email nunca se emite en texto plano; se envía email_hash = sha256(email en minúsculas) calculado en el cliente antes de emitir el evento.",
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email_hash", "reason"],
+        "properties": {
+          "email_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "reason": { "type": "string", "enum": ["invalid_credentials"] }
+        }
+      }
+    },
+    "login_succeeded": {
+      "classification": "identificado",
+      "description": "Un usuario autentica correctamente contra POST /auth/login.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["auth_method"],
+        "properties": {
+          "auth_method": { "type": "string", "enum": ["password"], "description": "Único método hoy; enum abierto a futuro SSO." }
+        }
+      }
+    },
+    "session_expired": {
+      "classification": "identificado",
+      "description": "El frontend detecta un 401 por JWT expirado durante el uso activo del backoffice.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token_age_seconds"],
+        "properties": {
+          "token_age_seconds": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "password_reset_requested": {
+      "classification": "identificado",
+      "description": "Un usuario envía el formulario de 'olvidé mi contraseña'.",
+      "delivery": "batch",
+      "pii": true,
+      "piiNote": "Mismo esquema de anonimización que login_attempt_failed: email_hash = sha256(email en minúsculas), nunca el email en texto plano.",
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email_hash", "request_source"],
+        "properties": {
+          "email_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "request_source": { "type": "string", "enum": ["forgot_password_form"] }
+        }
+      }
+    },
+    "api_latency_recorded": {
+      "classification": "identificado",
+      "description": "Métrica agregada de latencia por endpoint, en ventanas de 60s (no un evento por request — ver throttle en telemetry-plan.md).",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["route", "method", "count", "p50_ms", "p95_ms", "error_count"],
+        "properties": {
+          "route": { "type": "string" },
+          "method": { "type": "string", "enum": ["GET", "POST", "PATCH", "DELETE"] },
+          "count": { "type": "integer", "minimum": 1 },
+          "p50_ms": { "type": "number", "minimum": 0 },
+          "p95_ms": { "type": "number", "minimum": 0 },
+          "error_count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "page_load_recorded": {
+      "classification": "identificado",
+      "description": "Tiempo de carga de una vista del backoffice.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["route", "load_time_ms"],
+        "properties": {
+          "route": { "type": "string" },
+          "load_time_ms": { "type": "number", "minimum": 0 },
+          "connection_type": { "type": "string", "description": "Opcional, de navigator.connection.effectiveType cuando el navegador lo expone." }
+        }
+      }
+    },
+    "frontend_error_captured": {
+      "classification": "identificado",
+      "description": "Un error de JS no capturado ocurre en el backoffice.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["route", "message"],
+        "properties": {
+          "route": { "type": "string" },
+          "message": { "type": "string", "maxLength": 500, "description": "Truncado a 500 caracteres antes de emitir — evita payloads grandes y reduce riesgo de capturar datos de usuario incrustados en el mensaje." },
+          "component_stack": { "type": "string", "description": "Opcional, solo si el error se capturó vía un React error boundary." }
+        }
+      }
+    },
+    "api_request_failed": {
+      "classification": "identificado",
+      "description": "La API responde 5xx a una request (distinto de un 4xx de validación de negocio, ya cubierto por eventos específicos).",
+      "delivery": "stream",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["route", "method", "status_code"],
+        "properties": {
+          "route": { "type": "string" },
+          "method": { "type": "string", "enum": ["GET", "POST", "PATCH", "DELETE"] },
+          "status_code": { "type": "integer", "minimum": 500, "maximum": 599 }
+        }
+      }
+    },
+    "backoffice_section_viewed": {
+      "classification": "identificado",
+      "description": "Un operador navega a una sección del backoffice.",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["route"],
+        "properties": {
+          "route": { "type": "string" }
+        }
+      }
+    },
+    "inventory_flow_abandoned": {
+      "classification": "identificado",
+      "description": "Un formulario de orden de inventario se abre y se abandona sin enviarse (>10s abierto, sin submit, navegación fuera).",
+      "delivery": "batch",
+      "pii": false,
+      "propertiesSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["form_name", "location_id", "time_open_seconds"],
+        "properties": {
+          "form_name": { "type": "string", "enum": ["inbound_order_form", "outbound_order_form"] },
+          "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
+          "product_id": { "type": "integer", "description": "Opcional — solo si el usuario llegó a seleccionar un producto antes de abandonar." },
+          "time_open_seconds": { "type": "number", "minimum": 10 }
+        }
+      }
+    }
+  }
+}
