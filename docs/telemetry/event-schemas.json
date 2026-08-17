@@ -26,7 +26,7 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "additionalProperties": false,
-        "required": ["location_id", "country", "product_id", "product_category", "quantity", "unit", "currency", "supplier_id"],
+        "required": ["location_id", "country", "product_id", "product_category", "quantity", "unit", "currency", "supplier_id", "unit_cost"],
         "properties": {
           "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
           "country": { "type": "string", "enum": ["CO", "US"] },
@@ -35,7 +35,8 @@
           "quantity": { "type": "number", "exclusiveMinimum": 0 },
           "unit": { "type": "string" },
           "currency": { "type": "string", "enum": ["COP", "USD"] },
-          "supplier_id": { "type": "integer" }
+          "supplier_id": { "type": "integer" },
+          "unit_cost": { "type": "number", "exclusiveMinimum": 0, "description": "Costo unitario pagado al proveedor, en la moneda de currency. Campo aditivo agregado en Hito 6 Parte 1 (Pipeline de Desempeño de Negocio) — alimenta total_purchase_cost en reporting.weekly_location_performance, no existía en el catálogo original de Project 6." }
         }
       }
     },
@@ -69,7 +70,7 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "additionalProperties": false,
-        "required": ["location_id", "country", "product_id", "product_category", "quantity", "unit", "reason"],
+        "required": ["location_id", "country", "product_id", "product_category", "quantity", "unit", "reason", "unit_cost"],
         "properties": {
           "location_id": { "type": "integer", "minimum": 1, "maximum": 14 },
           "country": { "type": "string", "enum": ["CO", "US"] },
@@ -77,7 +78,8 @@
           "product_category": { "type": "string", "enum": ["meat", "produce", "sauce", "beverage", "packaging", "cleaning"] },
           "quantity": { "type": "number", "exclusiveMinimum": 0 },
           "unit": { "type": "string" },
-          "reason": { "type": "string", "enum": ["expired", "kitchen_error", "theft_suspected"], "description": "Requiere un campo nuevo en OutboundOrderForm.tsx (waste_reason condicional) — no existe en el código actual, ver telemetry-plan.md sección de riesgos." }
+          "reason": { "type": "string", "enum": ["expired", "kitchen_error", "theft_suspected"], "description": "Requiere un campo nuevo en OutboundOrderForm.tsx (waste_reason condicional) — no existe en el código actual, ver telemetry-plan.md sección de riesgos." },
+          "unit_cost": { "type": "number", "exclusiveMinimum": 0, "description": "Costo unitario del producto mermado, en la moneda del local (derivada de country: CO→COP, US→USD, misma convención que COUNTRY_CURRENCY en services/api/models.py — no se repite currency aquí). Campo aditivo agregado en Hito 6 Parte 1 — alimenta total_waste_cost en reporting.weekly_location_performance, no existía en el catálogo original de Project 6." }
         }
       }
     },
