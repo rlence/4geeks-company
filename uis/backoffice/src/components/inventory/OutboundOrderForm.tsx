@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { LOCATION_OPTIONS, REASON_LABELS, REASON_OPTIONS } from "@/lib/inventoryLabels";
+import { LOCATION_OPTIONS, LOW_STOCK_THRESHOLD, REASON_LABELS, REASON_OPTIONS } from "@/lib/inventoryLabels";
 import { createOutboundOrder, getApiErrorMessage } from "@/lib/inventoryApi";
 import { useIngredients } from "@/hooks/useIngredients";
+import { track } from "@/lib/telemetry";
 import type { ExitReason } from "@/types/inventory";
 
 type Status = "idle" | "submitting" | "success" | "error";
@@ -53,6 +54,12 @@ export const OutboundOrderForm = () => {
       return;
     }
     if (quantityExceedsStock) {
+      track("inventory_order_validation_failed", {
+        location_id: Number(form.location_id),
+        product_id: ingredientId,
+        order_type: "outbound",
+        reason: "quantity_exceeds_stock",
+      });
       setClientError("La cantidad supera el stock disponible — corrígela antes de enviar");
       return;
     }
@@ -65,6 +72,44 @@ export const OutboundOrderForm = () => {
         reason: form.reason,
         location_id: Number(form.location_id),
       });
+
+      const locationId = Number(form.location_id);
+      const productCategory = selectedIngredient?.category ?? null;
+      const unit = selectedIngredient?.unit ?? null;
+
+      track("outbound_order_created", {
+        location_id: locationId,
+        product_id: ingredientId,
+        product_category: productCategory,
+        quantity,
+        unit,
+        reason: form.reason,
+      });
+
+      if (form.reason === "waste") {
+        track("stock_waste_registered", {
+          location_id: locationId,
+          product_id: ingredientId,
+          product_category: productCategory,
+          quantity,
+          unit,
+        });
+      }
+
+      if (selectedIngredient) {
+        const newStock = selectedIngredient.current_stock - quantity;
+        if (newStock < LOW_STOCK_THRESHOLD) {
+          track("stock_threshold_triggered", {
+            location_id: locationId,
+            product_id: ingredientId,
+            product_category: productCategory,
+            current_stock: newStock,
+            threshold: LOW_STOCK_THRESHOLD,
+            unit,
+          });
+        }
+      }
+
       setForm(emptyState);
       setStatus("success");
     } catch (err) {

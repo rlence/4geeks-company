@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LOCATION_OPTIONS } from "@/lib/inventoryLabels";
 import { createInboundOrder, getApiErrorMessage } from "@/lib/inventoryApi";
 import { useIngredients } from "@/hooks/useIngredients";
+import { track } from "@/lib/telemetry";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -26,6 +27,11 @@ export const InboundOrderForm = () => {
   const [clientError, setClientError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const selectedIngredient = useMemo(
+    () => ingredients.find((ingredient) => ingredient.id === Number(form.ingredient_id)) ?? null,
+    [ingredients, form.ingredient_id],
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -56,6 +62,18 @@ export const InboundOrderForm = () => {
         quantity,
         location_id: Number(form.location_id),
       });
+
+      // TODO(telemetry): faltan country, supplier_id, currency y unit_cost
+      // (required en event-schemas.json) — no existen hoy en Ingredient ni
+      // en IngredientEntryInput. Ver docs/telemetry/telemetry-plan.md §6.
+      track("inbound_order_created", {
+        location_id: Number(form.location_id),
+        product_id: ingredientId,
+        product_category: selectedIngredient?.category ?? null,
+        quantity,
+        unit: selectedIngredient?.unit ?? null,
+      });
+
       setForm(emptyState);
       setStatus("success");
     } catch (err) {

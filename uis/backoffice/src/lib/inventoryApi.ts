@@ -1,4 +1,5 @@
-import { getCurrentUserId, getToken } from "@/lib/session";
+import { clearToken, getCurrentUserId, getToken, getTokenAgeSeconds } from "@/lib/session";
+import { reportApiLatency, track } from "@/lib/telemetry";
 import type {
   Ingredient,
   IngredientEntry,
@@ -27,9 +28,21 @@ const request = async <T>(path: string, init?: RequestInit, signal?: AbortSignal
   const headers: HeadersInit = { "Content-Type": "application/json", ...init?.headers };
   if (token) (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
 
+  const method = init?.method ?? "GET";
+  const start = performance.now();
   const response = await fetch(`${API_URL}${path}`, { ...init, signal, headers });
+  reportApiLatency(method, path, performance.now() - start, !response.ok);
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      track("api_request_failed", { route: path, method, status_code: response.status });
+    }
+    if (response.status === 401 && token) {
+      const tokenAgeSeconds = getTokenAgeSeconds();
+      clearToken();
+      if (tokenAgeSeconds !== null) track("session_expired", { token_age_seconds: tokenAgeSeconds });
+    }
+
     let detail: string | ValidationDetail[] | undefined;
     try {
       detail = (await response.json()).detail;

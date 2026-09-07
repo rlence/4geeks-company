@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getApiErrorMessage, login } from "@/lib/authApi";
-import { setToken } from "@/lib/session";
+import { ApiError, getApiErrorMessage, login } from "@/lib/authApi";
+import { setToken, sha256Hex } from "@/lib/session";
+import { track } from "@/lib/telemetry";
 
 type Status = "idle" | "submitting" | "error";
 
@@ -23,8 +24,12 @@ export default function LoginPage() {
     try {
       const { access_token } = await login({ email, password });
       setToken(access_token);
+      track("login_succeeded", { auth_method: "password" });
       router.push("/");
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        track("login_attempt_failed", { email_hash: await sha256Hex(email), reason: "invalid_credentials" });
+      }
       setError(getApiErrorMessage(err));
       setStatus("error");
     }

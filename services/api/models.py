@@ -96,3 +96,22 @@ class ResetPasswordRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8)
+
+
+class TelemetryEvent(BaseModel):
+    """Envelope estándar de docs/telemetry/event-schemas.json — sin validar
+    `properties` contra el allowlist por evento todavía (eso llega en la
+    fase de persistencia real, no en este stub)."""
+
+    eventId: str
+    timestamp: str
+    sessionId: str
+    userId: str | None
+    event_type: str
+    schemaVersion: str
+    requestId: str | None
+    properties: dict
+
+
+class TelemetryBatch(BaseModel):
+    events: list[TelemetryEvent]

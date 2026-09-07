@@ -5,7 +5,8 @@ import type {
   ResetPasswordInput,
   TokenResponse,
 } from "@/types/auth";
-import { getToken } from "@/lib/session";
+import { clearToken, getToken, getTokenAgeSeconds } from "@/lib/session";
+import { reportApiLatency, track } from "@/lib/telemetry";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL as string;
 
@@ -28,9 +29,21 @@ const request = async <T>(path: string, init?: RequestInit, authenticated = fals
     if (token) (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
+  const method = init?.method ?? "GET";
+  const start = performance.now();
   const response = await fetch(`${API_URL}${path}`, { ...init, headers });
+  reportApiLatency(method, path, performance.now() - start, !response.ok);
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      track("api_request_failed", { route: path, method, status_code: response.status });
+    }
+    if (response.status === 401 && authenticated) {
+      const tokenAgeSeconds = getTokenAgeSeconds();
+      clearToken();
+      if (tokenAgeSeconds !== null) track("session_expired", { token_age_seconds: tokenAgeSeconds });
+    }
+
     let detail: string | ValidationDetail[] | undefined;
     try {
       detail = (await response.json()).detail;

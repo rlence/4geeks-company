@@ -10,3 +10,4 @@ RESET_TOKEN_TTL_MINUTES = int(os.environ.get("RESET_TOKEN_TTL_MINUTES", "30"))
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 RESEND_API_KEY = os.environ["RESEND_API_KEY"]
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "Brasaland <onboarding@resend.dev>")
+TELEMETRY_ENDPOINT = os.environ.get("TELEMETRY_ENDPOINT", "http://localhost:8000/telemetry/events")

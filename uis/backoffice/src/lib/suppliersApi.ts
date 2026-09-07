@@ -1,4 +1,5 @@
 import type { Supplier, SupplierCreateInput, SupplierListFilters, SupplierStatus } from "@/types/supplier";
+import { reportApiLatency, track } from "@/lib/telemetry";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL as string;
 
@@ -15,13 +16,20 @@ export class ApiError extends Error {
 }
 
 const request = async <T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> => {
+  const method = init?.method ?? "GET";
+  const start = performance.now();
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     signal,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
+  reportApiLatency(method, path, performance.now() - start, !response.ok);
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      track("api_request_failed", { route: path, method, status_code: response.status });
+    }
+
     let detail: string | ValidationDetail[] | undefined;
     try {
       detail = (await response.json()).detail;

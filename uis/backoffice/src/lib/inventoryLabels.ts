@@ -26,3 +26,9 @@ export const REASON_LABELS: Record<ExitReason, string> = {
 export const REASON_OPTIONS = Object.keys(REASON_LABELS) as ExitReason[];
 
 export const LOCATION_OPTIONS = Array.from({ length: 14 }, (_, index) => index + 1);
+
+// Umbral arbitrario para la demo (no viene del backend): reutilizado por
+// StockBadge.tsx (nivel visual) y por la instrumentación de telemetría de
+// stock_threshold_triggered — no hay campo de stock mínimo en el spec de
+// Ingredient, ver docs/telemetry/telemetry-plan.md.
+export const LOW_STOCK_THRESHOLD = 20;
