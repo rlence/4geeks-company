@@ -1,10 +1,14 @@
-"""Pipeline de Desempeño de Negocio — Hito 6, Parte 2.
+"""Pipeline de Desempeño de Negocio — Hito 6, Partes 2 y 3.
 
 Extrae de `telemetry_events` (solo lectura, schema `public`), transforma
 con `data/process/weekly_aggregation.py`, y carga en
 `reporting.weekly_location_performance` (upsert). Cada corrida se registra
 en `reporting.pipeline_runs`. No toca `services/telemetry/analysis.py` ni
 `GET /telemetry/report`.
+
+Parte 3: el flow principal ya no contiene la lógica ETL directamente —
+coordina 4 subflows (extracción, transformación, carga, snapshot opcional),
+cada uno con inputs/outputs explícitos y ejecutable de forma independiente.
 
 Corre como script (`if __name__ == "__main__"`) usando el venv de
 services/api, que es donde viven prefect/pandas/supabase-py en este
@@ -31,7 +35,11 @@ from prefect.tasks import task_input_hash
 from supabase import Client, create_client
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from process.weekly_aggregation import compute_weekly_kpis, dedup_events  # noqa: E402
+from process.weekly_aggregation import (  # noqa: E402
+    compute_weekly_kpis,
+    dedup_events,
+    validate_weekly_rows,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EVAL_DIR = REPO_ROOT / "data" / "eval"
@@ -63,6 +71,10 @@ SOURCE_EVENT_TYPES = [
     "ingredient_price_variance_detected",
 ]
 
+# ---------------------------------------------------------------------------
+# Tasks
+# ---------------------------------------------------------------------------
+
 
 @task(retries=3, retry_delay_seconds=5, cache_policy=NO_CACHE)
 def extract_telemetry_events(client: Client, week_start: date, week_end: date) -> list[dict]:
@@ -84,15 +96,24 @@ def extract_telemetry_events(client: Client, week_start: date, week_end: date) -
     return response.data
 
 
+@task(cache_policy=NO_CACHE)
+def dedup_events_task(events: list[dict]) -> list[dict]:
+    return dedup_events(events)
+
+
 @task(cache_key_fn=task_input_hash, cache_expiration=timedelta(hours=1))
-def transform_weekly_aggregates(events: list[dict], week_start: date) -> list[dict]:
+def compute_weekly_kpis_task(events: list[dict], week_start: date) -> list[dict]:
     # cache_key_fn=task_input_hash: la clave es el hash de (events,
     # week_start) — si la misma corrida se reintenta dentro de la hora
     # (mismo ticket: "si una task ya corrió exitosamente en la última
     # hora, no debe repetirse"), Prefect reusa el resultado sin volver a
     # correr el groupby de Pandas sobre el mismo input.
-    deduped = dedup_events(events)
-    return compute_weekly_kpis(deduped, week_start)
+    return compute_weekly_kpis(events, week_start)
+
+
+@task(cache_policy=NO_CACHE)
+def validate_weekly_rows_task(rows: list[dict]) -> list[dict]:
+    return validate_weekly_rows(rows)
 
 
 @task(retries=3, retry_delay_seconds=5, cache_policy=NO_CACHE)
@@ -109,7 +130,7 @@ def load_weekly_performance(client: Client, rows: list[dict]) -> int:
 def snapshot_to_eval(rows: list[dict], week_start: date) -> None:
     # Paso opcional/no crítico: exporta un snapshot para QA manual. Si
     # falla (ej. permisos de disco), no debe tumbar la corrida — ver el
-    # manejo con return_state=True en el flow.
+    # manejo con return_state=True en el flow principal.
     import json
 
     EVAL_DIR.mkdir(parents=True, exist_ok=True)
@@ -122,6 +143,44 @@ def log_pipeline_run(client: Client, run_id: str | None = None, **fields: Any) -
     run_id = run_id or str(uuid.uuid4())
     client.schema("reporting").table("pipeline_runs").upsert([{"id": run_id, **fields}]).execute()
     return run_id
+
+
+# ---------------------------------------------------------------------------
+# Subflows — cada uno con inputs/outputs explícitos, sin estado global
+# compartido, ejecutable y monitoreable por separado del flow principal.
+# ---------------------------------------------------------------------------
+
+
+@flow(name="extract_weekly_events_flow", validate_parameters=False)
+def extract_weekly_events_flow(client: Client, week_start: date, week_end: date) -> list[dict]:
+    # validate_parameters=False: Prefect valida por defecto los tipos de
+    # parámetros del flow con Pydantic, y supabase.Client no es un tipo
+    # que Pydantic sepa validar como instancia arbitraria — además, los
+    # tests inyectan un fake client en su lugar (ver reporting_fakes.py),
+    # que la validación estricta rechazaría igual aunque fuera válido.
+    return extract_telemetry_events(client, week_start, week_end)
+
+
+@flow(name="transform_weekly_performance_flow")
+def transform_weekly_performance_flow(events: list[dict], week_start: date) -> list[dict]:
+    deduped = dedup_events_task(events)
+    kpis = compute_weekly_kpis_task(deduped, week_start)
+    return validate_weekly_rows_task(kpis)
+
+
+@flow(name="load_weekly_performance_flow", validate_parameters=False)
+def load_weekly_performance_flow(client: Client, rows: list[dict]) -> int:
+    return load_weekly_performance(client, rows)
+
+
+@flow(name="snapshot_weekly_eval_flow")
+def snapshot_weekly_eval_flow(rows: list[dict], week_start: date) -> None:
+    snapshot_to_eval(rows, week_start)
+
+
+# ---------------------------------------------------------------------------
+# Flow principal — coordina los subflows, no contiene lógica ETL.
+# ---------------------------------------------------------------------------
 
 
 @flow(name="weekly_location_performance_flow")
@@ -142,14 +201,14 @@ def weekly_location_performance_flow(week_start: date | None = None) -> dict:
     )
 
     try:
-        events = extract_telemetry_events(client, week_start, week_end)
-        rows = transform_weekly_aggregates(events, week_start)
-        stored = load_weekly_performance(client, rows)
+        events = extract_weekly_events_flow(client, week_start, week_end)
+        rows = transform_weekly_performance_flow(events, week_start)
+        stored = load_weekly_performance_flow(client, rows)
 
-        snapshot_state: State = snapshot_to_eval.submit(rows, week_start, return_state=True)
+        snapshot_state: State = snapshot_weekly_eval_flow(rows, week_start, return_state=True)
         if snapshot_state.is_failed():
             run_logger.warning(
-                "snapshot_to_eval falló, no crítico — la corrida sigue: %s", snapshot_state
+                "snapshot_weekly_eval_flow falló, no crítico — la corrida sigue: %s", snapshot_state
             )
 
         log_pipeline_run(
