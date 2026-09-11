@@ -201,3 +201,19 @@ Ninguna lógica de extracción/transformación/carga vive en `services/reporting
 - **`outbound_order_created` excluido de v1** — es contexto operativo, no alimenta ningún KPI de este reporte. Candidato a v2 (detección de anomalías).
 - **Conversión de moneda excluida de v1** — locales `COP` y `USD` se reportan siempre por separado; convertir a una sola moneda es trabajo de un futuro pipeline de reporting ejecutivo, no de este.
 - **`services/telemetry/analysis.py` y `GET /telemetry/report` fuera de alcance** — no se modifican ni se leen desde este pipeline.
+
+---
+
+## 7. Implementación (Hito 6, Parte 2)
+
+Notas de la implementación real, ver [`context/plans/hito6-part-2.md`](../../../context/plans/hito6-part-2.md) para el detalle completo de decisiones.
+
+- **Estado real hoy (actualiza §0/§6):** `telemetry_events` ya existe y tiene endpoint real (Project 6.2) con reporte técnico (6.3). `country` **sí se resuelve** — no depende de un modelo `Location`, viene directo de `Ingredient.country` (ya existía en el frontend, sin usarse en telemetría). `unit_cost` se agregó como input real en `InboundOrderForm`/`OutboundOrderForm` (Fase 2 de la implementación). `/inventory` **sigue sin existir en el backend** (Hito 5) — hoy no hay forma de generar `inbound_order_created`/`stock_waste_registered` reales por la UI; el pipeline corre igual y produce `records_extracted=0` de forma válida y auditable.
+- **Entorno de ejecución:** no hay un venv propio en `data/` — `prefect`, `pandas` y `supabase` viven en el venv de `services/api` (ver Decisión 1 de `hito6-part-2.md`: el import en proceso que necesita `POST /reporting/pipeline-runs` no puede cruzar dos venvs distintos).
+- **Comando de ejecución como script:**
+  ```bash
+  cd services/api && uv run python ../../data/pipelines/pipeline.py
+  ```
+- **Esquema `reporting`:** DDL en [`sql/reporting_schema.sql`](./sql/reporting_schema.sql) — correr a mano en el SQL Editor de Supabase, y agregar `reporting` en Project Settings → API → Exposed schemas (PostgREST no sirve schemas fuera de `public` por defecto).
+- **Transformación pura:** `data/process/weekly_aggregation.py` (`dedup_events`, `compute_weekly_kpis`) — sin Prefect, testeada en `services/api/tests/test_weekly_aggregation.py`.
+- **Tests del flow:** `services/api/tests/test_pipeline_flow.py` corre el flow real de Prefect contra un fake cliente Supabase en memoria (`services/api/tests/reporting_fakes.py`) — cubre idempotencia (correr dos veces no duplica filas) y que el paso opcional (`snapshot_to_eval`, `return_state=True`) fallando no tumba la corrida.

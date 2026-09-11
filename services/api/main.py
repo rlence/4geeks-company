@@ -1,5 +1,7 @@
 import logging
+import sys
 import time
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.auth import router as auth_router
 from routes.suppliers import router as suppliers_router
 from routes.telemetry import router as telemetry_router
+
+# services/reporting es un módulo plano sibling de services/api (mismo
+# mecanismo sys.path que services/telemetry, ver context/plans/hito6-part-2.md).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "reporting"))
+from endpoints import router as reporting_router  # noqa: E402
 
 app = FastAPI(
     title="Brasaland — API",
@@ -42,6 +49,7 @@ async def timing_middleware(request: Request, call_next):
 app.include_router(suppliers_router)
 app.include_router(auth_router)
 app.include_router(telemetry_router)
+app.include_router(reporting_router)
 
 
 @app.get("/health")

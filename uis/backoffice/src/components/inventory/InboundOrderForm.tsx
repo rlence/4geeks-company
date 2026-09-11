@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { LOCATION_OPTIONS } from "@/lib/inventoryLabels";
+import { COUNTRY_CURRENCY, LOCATION_OPTIONS } from "@/lib/inventoryLabels";
 import { createInboundOrder, getApiErrorMessage } from "@/lib/inventoryApi";
 import { useIngredients } from "@/hooks/useIngredients";
 import { track } from "@/lib/telemetry";
@@ -13,6 +13,7 @@ const emptyState = {
   ingredient_id: "",
   supplier_name: "",
   quantity: "",
+  unit_cost: "",
   location_id: "1",
 };
 
@@ -40,6 +41,7 @@ export const InboundOrderForm = () => {
 
     const ingredientId = Number(form.ingredient_id);
     const quantity = Number(form.quantity);
+    const unitCost = Number(form.unit_cost);
 
     if (!ingredientId) {
       setClientError("Selecciona un ingrediente");
@@ -53,6 +55,10 @@ export const InboundOrderForm = () => {
       setClientError("La cantidad debe ser un número mayor a 0");
       return;
     }
+    if (!Number.isFinite(unitCost) || unitCost <= 0) {
+      setClientError("El costo unitario debe ser un número mayor a 0");
+      return;
+    }
 
     setStatus("submitting");
     try {
@@ -63,15 +69,18 @@ export const InboundOrderForm = () => {
         location_id: Number(form.location_id),
       });
 
-      // TODO(telemetry): faltan country, supplier_id, currency y unit_cost
-      // (required en event-schemas.json) — no existen hoy en Ingredient ni
-      // en IngredientEntryInput. Ver docs/telemetry/telemetry-plan.md §6.
+      // TODO(telemetry): falta supplier_id — el form usa supplier_name de
+      // texto libre, sin FK al directorio de /suppliers. No bloquea los
+      // KPIs de Hito 6 (ninguno depende de supplier_id). Ver PIPELINE_DESIGN.md.
       track("inbound_order_created", {
         location_id: Number(form.location_id),
+        country: selectedIngredient?.country ?? null,
         product_id: ingredientId,
         product_category: selectedIngredient?.category ?? null,
         quantity,
         unit: selectedIngredient?.unit ?? null,
+        currency: selectedIngredient ? COUNTRY_CURRENCY[selectedIngredient.country] : null,
+        unit_cost: unitCost,
       });
 
       setForm(emptyState);
@@ -121,6 +130,18 @@ export const InboundOrderForm = () => {
           min="0.01"
           value={form.quantity}
           onChange={(event) => setForm((prev) => ({ ...prev, quantity: event.target.value }))}
+          className="rounded border px-3 py-2"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        Costo unitario
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={form.unit_cost}
+          onChange={(event) => setForm((prev) => ({ ...prev, unit_cost: event.target.value }))}
           className="rounded border px-3 py-2"
         />
       </label>

@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/.env*
+**/*.log
+**/.venv
+services/api/tests
+services/api/db.json
+uis/talent-pipeline-tracker
