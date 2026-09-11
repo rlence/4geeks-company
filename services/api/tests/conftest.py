@@ -13,6 +13,8 @@ _TEST_DB_DIR = tempfile.mkdtemp(prefix="brasaland_test_db_")
 os.environ["DB_PATH"] = str(Path(_TEST_DB_DIR) / "test_db.json")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-not-for-prod-32-bytes-min")
 os.environ.setdefault("RESEND_API_KEY", "test-resend-key-not-for-prod")
+os.environ.setdefault("SUPABASE_URL", "https://test-project.supabase.co")
+os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key-not-for-prod")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -20,6 +22,58 @@ from fastapi.testclient import TestClient  # noqa: E402
 from auth import hash_password  # noqa: E402
 from database import password_reset_tokens_table, suppliers_table, users_table  # noqa: E402
 from main import app  # noqa: E402
+from supabase_client import get_supabase_client  # noqa: E402
+
+
+class FakeSupabaseTable:
+    def __init__(self, rows: list[dict]) -> None:
+        self._rows = rows
+        self._pending: list[dict] | None = None
+
+    def upsert(
+        self, rows: list[dict], on_conflict: str | None = None, ignore_duplicates: bool = False
+    ) -> "FakeSupabaseTable":
+        self._pending = rows
+        return self
+
+    def execute(self) -> None:
+        assert self._pending is not None
+        existing_ids = {row["event_id"] for row in self._rows}
+        for row in self._pending:
+            if row["event_id"] not in existing_ids:
+                self._rows.append(row)
+                existing_ids.add(row["event_id"])
+        self._pending = None
+
+
+class FakeSupabaseClient:
+    """Sustituye al cliente supabase-py real en tests: sin red, solo
+    acumula en memoria lo que el endpoint intentaría persistir (con la
+    misma semántica ON CONFLICT (event_id) DO NOTHING del upsert real)."""
+
+    def __init__(self) -> None:
+        self.inserted_rows: list[dict] = []
+        self.upsert_calls: list[list[dict]] = []
+
+    def table(self, name: str) -> FakeSupabaseTable:
+        assert name == "telemetry_events"
+        table = FakeSupabaseTable(self.inserted_rows)
+        original_upsert = table.upsert
+
+        def tracked_upsert(rows: list[dict], **kwargs) -> FakeSupabaseTable:
+            self.upsert_calls.append(rows)
+            return original_upsert(rows, **kwargs)
+
+        table.upsert = tracked_upsert  # type: ignore[method-assign]
+        return table
+
+
+@pytest.fixture
+def fake_supabase() -> FakeSupabaseClient:
+    fake = FakeSupabaseClient()
+    app.dependency_overrides[get_supabase_client] = lambda: fake
+    yield fake
+    app.dependency_overrides.pop(get_supabase_client, None)
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:

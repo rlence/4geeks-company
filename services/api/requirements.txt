@@ -17,42 +17,91 @@ certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
+cffi==2.1.1 ; platform_python_implementation != 'PyPy'
+    # via cryptography
 click==8.4.2
     # via uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'
     # via click
+cryptography==50.0.1
+    # via pyjwt
+deprecation==2.1.0
+    # via
+    #   postgrest
+    #   storage3
 fastapi==0.141.1
     # via api
 h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
+h2==4.4.1
+    # via httpx
+hpack==4.2.0
+    # via h2
 httpcore==1.0.9
     # via httpx
 httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
-    # via api
+    # via
+    #   api
+    #   postgrest
+    #   storage3
+    #   supabase
+    #   supabase-auth
+    #   supabase-functions
+hyperframe==6.1.0
+    # via h2
 idna==3.18
     # via
     #   anyio
     #   httpx
+    #   yarl
+multidict==6.8.0
+    # via yarl
+packaging==26.3
+    # via deprecation
+postgrest==2.31.0
+    # via supabase
+propcache==0.5.2
+    # via yarl
+pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+    # via cffi
 pydantic==2.13.4
     # via
     #   api
     #   fastapi
+    #   postgrest
+    #   realtime
+    #   storage3
+    #   supabase-auth
 pydantic-core==2.46.4
     # via pydantic
 pyjwt==2.13.0
-    # via api
+    # via
+    #   api
+    #   supabase-auth
 python-dotenv==1.2.2
     # via
     #   api
     #   uvicorn
 pyyaml==6.0.3
     # via uvicorn
+realtime==2.31.0
+    # via supabase
 starlette==1.4.1
     # via fastapi
+storage3==2.31.0
+    # via supabase
+strenum==0.4.15
+    # via supabase-functions
+supabase==2.31.0
+    # via api
+supabase-auth==2.31.0
+    # via supabase
+supabase-functions==2.31.0
+    # via supabase
 tinydb==4.9.0
     # via api
 typing-extensions==4.16.0
@@ -60,6 +109,7 @@ typing-extensions==4.16.0
     #   fastapi
     #   pydantic
     #   pydantic-core
+    #   realtime
     #   typing-inspection
 typing-inspection==0.4.2
     # via
@@ -71,5 +121,13 @@ uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'c
     # via uvicorn
 watchfiles==1.2.0
     # via uvicorn
-websockets==17.0.1
-    # via uvicorn
+websockets==15.0.1
+    # via
+    #   realtime
+    #   uvicorn
+yarl==1.24.5
+    # via
+    #   postgrest
+    #   storage3
+    #   supabase
+    #   supabase-functions

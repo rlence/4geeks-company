@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { forgotPassword, getApiErrorMessage } from "@/lib/authApi";
+import { sha256Hex } from "@/lib/session";
+import { track } from "@/lib/telemetry";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -17,6 +19,10 @@ export default function ForgotPasswordPage() {
 
     try {
       await forgotPassword({ email });
+      track("password_reset_requested", {
+        email_hash: await sha256Hex(email),
+        request_source: "forgot_password_form",
+      });
       setStatus("success");
     } catch (err) {
       setError(getApiErrorMessage(err));

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routes.auth import router as auth_router
 from routes.suppliers import router as suppliers_router
+from routes.telemetry import router as telemetry_router
 
 app = FastAPI(
     title="Brasaland — API",
@@ -40,6 +41,7 @@ async def timing_middleware(request: Request, call_next):
 
 app.include_router(suppliers_router)
 app.include_router(auth_router)
+app.include_router(telemetry_router)
 
 
 @app.get("/health")

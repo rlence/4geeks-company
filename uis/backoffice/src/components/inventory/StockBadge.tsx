@@ -1,11 +1,8 @@
+import { LOW_STOCK_THRESHOLD } from "@/lib/inventoryLabels";
+
 interface StockBadgeProps {
   currentStock: number;
 }
-
-// Umbral arbitrario para la demo (no viene del backend): <=0 sin stock,
-// <20 stock bajo independientemente de la unidad (kg/litro/unidad), por
-// simplicidad — no hay campo de stock mínimo en el spec de Ingredient.
-const LOW_STOCK_THRESHOLD = 20;
 
 export const StockBadge = ({ currentStock }: StockBadgeProps) => {
   if (currentStock <= 0) {
