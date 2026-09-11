@@ -12,6 +12,7 @@ from datetime import date
 import pandas as pd
 
 COUNTRY_CURRENCY = {"CO": "COP", "US": "USD"}
+VALID_COUNTRIES = set(COUNTRY_CURRENCY)
 
 _COST_EVENT_TYPES = ["inbound_order_created", "stock_waste_registered"]
 _COUNT_EVENT_TYPES = ["stock_threshold_triggered", "ingredient_price_variance_detected"]
@@ -104,3 +105,25 @@ def compute_weekly_kpis(events: list[dict], week_start: date) -> list[dict]:
     combined["currency"] = combined["country"].map(COUNTRY_CURRENCY).fillna("USD")
 
     return combined[_OUTPUT_COLUMNS].to_dict("records")
+
+
+def _is_non_negative_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+
+
+def validate_weekly_rows(rows: list[dict]) -> list[dict]:
+    """Filtro defensivo antes de cargar en reporting.weekly_location_performance.
+    Nunca debería descartar nada si compute_weekly_kpis corrió bien — pero la
+    carga no confía ciegamente en eso: descarta filas con `country` fuera de
+    {CO, US} o con costos no numéricos/negativos, en vez de romper la corrida
+    completa o escribir un dato incorrecto en la tabla de reporting."""
+    valid = []
+    for row in rows:
+        if row.get("country") not in VALID_COUNTRIES:
+            continue
+        if not _is_non_negative_number(row.get("total_purchase_cost")):
+            continue
+        if not _is_non_negative_number(row.get("total_waste_cost")):
+            continue
+        valid.append(row)
+    return valid
