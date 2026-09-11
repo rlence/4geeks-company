@@ -5,6 +5,8 @@ Supabase con un único upsert por lote (event_id como PK, ignore_duplicates
 para tolerar reintentos), y reporta received/stored/rejected.
 """
 
+from datetime import datetime, timedelta
+
 
 def _valid_event(**overrides) -> dict:
     event = {
@@ -112,3 +114,59 @@ class TestReceiveEvents:
             "request_id": None,
             "tags": {"route": "/suppliers"},
         }
+
+
+class TestGetReport:
+    def test_defaults_to_the_last_7_days_when_no_params_given(self, client, fake_supabase):
+        response = client.get("/telemetry/report")
+
+        assert response.status_code == 200
+        body = response.json()
+        period_from = datetime.fromisoformat(body["period"]["from"])
+        period_to = datetime.fromisoformat(body["period"]["to"])
+        assert (period_to - period_from) == timedelta(days=7)
+
+    def test_response_has_the_expected_shape(self, client, fake_supabase):
+        response = client.get(
+            "/telemetry/report",
+            params={"start_date": "2026-09-01T00:00:00Z", "end_date": "2026-09-08T00:00:00Z"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["period"] == {
+            "from": "2026-09-01T00:00:00+00:00",
+            "to": "2026-09-08T00:00:00+00:00",
+        }
+        assert set(body["metrics"].keys()) == {
+            "events_per_day",
+            "error_rate_by_day",
+            "api_latency_p95_by_route",
+            "auth_failure_rate",
+        }
+
+    def test_repeating_the_same_window_within_the_ttl_does_not_recompute(
+        self, client, fake_supabase
+    ):
+        params = {"start_date": "2026-09-01T00:00:00Z", "end_date": "2026-09-08T00:00:00Z"}
+
+        client.get("/telemetry/report", params=params)
+        calls_after_first = fake_supabase.table_calls
+        client.get("/telemetry/report", params=params)
+
+        assert fake_supabase.table_calls == calls_after_first
+
+    def test_a_different_window_is_not_served_from_the_other_windows_cache_entry(
+        self, client, fake_supabase
+    ):
+        client.get(
+            "/telemetry/report",
+            params={"start_date": "2026-09-01T00:00:00Z", "end_date": "2026-09-08T00:00:00Z"},
+        )
+        calls_after_first = fake_supabase.table_calls
+        client.get(
+            "/telemetry/report",
+            params={"start_date": "2026-08-01T00:00:00Z", "end_date": "2026-08-08T00:00:00Z"},
+        )
+
+        assert fake_supabase.table_calls > calls_after_first

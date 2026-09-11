@@ -24,7 +24,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./services/api:/app
+      - ./services/api:/app/services/api
+      - ./services/telemetry:/app/services/telemetry
     env_file:
       - .env
     networks:
