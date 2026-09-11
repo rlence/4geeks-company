@@ -14,6 +14,7 @@ const emptyState = {
   ingredient_id: "",
   quantity: "",
   reason: "consumption" as ExitReason,
+  unit_cost: "",
   location_id: "1",
 };
 
@@ -44,6 +45,7 @@ export const OutboundOrderForm = () => {
 
     const ingredientId = Number(form.ingredient_id);
     const quantity = Number(form.quantity);
+    const unitCost = Number(form.unit_cost);
 
     if (!ingredientId) {
       setClientError("Selecciona un ingrediente");
@@ -51,6 +53,10 @@ export const OutboundOrderForm = () => {
     }
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setClientError("La cantidad debe ser un número mayor a 0");
+      return;
+    }
+    if (form.reason === "waste" && (!Number.isFinite(unitCost) || unitCost <= 0)) {
+      setClientError("El costo unitario es requerido para registrar merma");
       return;
     }
     if (quantityExceedsStock) {
@@ -74,11 +80,13 @@ export const OutboundOrderForm = () => {
       });
 
       const locationId = Number(form.location_id);
+      const country = selectedIngredient?.country ?? null;
       const productCategory = selectedIngredient?.category ?? null;
       const unit = selectedIngredient?.unit ?? null;
 
       track("outbound_order_created", {
         location_id: locationId,
+        country,
         product_id: ingredientId,
         product_category: productCategory,
         quantity,
@@ -89,10 +97,12 @@ export const OutboundOrderForm = () => {
       if (form.reason === "waste") {
         track("stock_waste_registered", {
           location_id: locationId,
+          country,
           product_id: ingredientId,
           product_category: productCategory,
           quantity,
           unit,
+          unit_cost: unitCost,
         });
       }
 
@@ -101,6 +111,7 @@ export const OutboundOrderForm = () => {
         if (newStock < LOW_STOCK_THRESHOLD) {
           track("stock_threshold_triggered", {
             location_id: locationId,
+            country,
             product_id: ingredientId,
             product_category: productCategory,
             current_stock: newStock,
@@ -178,6 +189,20 @@ export const OutboundOrderForm = () => {
           ))}
         </select>
       </label>
+
+      {form.reason === "waste" && (
+        <label className="flex flex-col gap-1 text-sm">
+          Costo unitario de la merma
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={form.unit_cost}
+            onChange={(event) => setForm((prev) => ({ ...prev, unit_cost: event.target.value }))}
+            className="rounded border px-3 py-2"
+          />
+        </label>
+      )}
 
       <label className="flex flex-col gap-1 text-sm">
         Local

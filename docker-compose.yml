@@ -20,12 +20,17 @@ services:
 
   api:
     build:
-      context: ./services
+      context: .
+      dockerfile: services/Dockerfile
     ports:
       - "8000:8000"
     volumes:
       - ./services/api:/app/services/api
       - ./services/telemetry:/app/services/telemetry
+      - ./services/reporting:/app/services/reporting
+      - ./data/pipelines:/app/data/pipelines
+      - ./data/process:/app/data/process
+      - ./data/eval:/app/data/eval
     env_file:
       - .env
     networks:

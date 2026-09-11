@@ -51,6 +51,17 @@ seed.py           # SUPPLIERS_SEED + USERS_SEED, siembra idempotente
   analysis.py     # pipeline Pandas del reporte técnico — sibling de api/, importado por
                    # routes/telemetry.py vía sys.path (no es un paquete uv instalable, ver
                    # context/plans/project-6.3-telemetria.md Decisión 1)
+
+../reporting/
+  endpoints.py    # los 3 endpoints del Pipeline de Desempeño de Negocio (Hito 6 Parte 2),
+                   # importado por main.py vía sys.path — mismo mecanismo que ../telemetry/
+
+../../data/pipelines/
+  pipeline.py     # flow de Prefect (extract → transform → load), corre con el venv de este
+                   # servicio (`cd services/api && uv run python ../../data/pipelines/pipeline.py`)
+  sql/reporting_schema.sql # DDL de reporting.weekly_location_performance + reporting.pipeline_runs
+../../data/process/
+  weekly_aggregation.py    # transformación pura (Pandas, sin Prefect), testeada aparte
 ```
 
 ## Notas de negocio — Proveedores
@@ -70,3 +81,12 @@ seed.py           # SUPPLIERS_SEED + USERS_SEED, siembra idempotente
 
 - `POST /telemetry/events` — `{ events: [...] }` → `{ received, stored, rejected }`. Cada evento se valida contra el envelope `TelemetryEvent`; los inválidos no cancelan el lote. Upsert por `event_id` (no `insert`): reintentos del frontend con el mismo lote no duplican filas.
 - `GET /telemetry/report` — reporte técnico (no de negocio): volumen por día/tipo, tasa de error diaria, latencia p95 por endpoint por día, y tasa de fallos de login. Query params opcionales `start_date`/`end_date` (ISO 8601); por defecto, últimos 7 días. Cache en memoria de 60s por combinación de fechas — no recalcula en cada request.
+
+## Notas de negocio — Pipeline de Desempeño de Negocio (Hito 6, Parte 2)
+
+- `GET /reporting/pipeline-runs/latest` — estado/metadata de la corrida más reciente de `weekly_location_performance_flow` (`reporting.pipeline_runs`).
+- `POST /reporting/pipeline-runs?week_start=<opcional ISO date>` — dispara el flow real (importado desde `data/pipelines/pipeline.py`, no reimplementado). Sin `week_start`, calcula la semana ISO anterior a hoy.
+- `GET /reporting/weekly-location-performance?week_start=<opcional>` — filas de `reporting.weekly_location_performance` para esa semana; sin `week_start`, la más reciente con datos.
+- Requiere el schema `reporting` creado (`data/pipelines/sql/reporting_schema.sql`) **y** agregado a Project Settings → API → Exposed schemas en Supabase — PostgREST no sirve schemas fuera de `public` por defecto.
+- `country` viaja en `inbound_order_created`/`outbound_order_created`/`stock_waste_registered`/`stock_threshold_triggered` desde `Ingredient.country` (ya existía en el frontend). `unit_cost` es un input real y requerido en `InboundOrderForm` y en `OutboundOrderForm` cuando el motivo es `waste` — sin él no se puede calcular `total_purchase_cost`/`total_waste_cost`.
+- El pipeline no toca `services/telemetry/analysis.py` ni `GET /telemetry/report` — lee `telemetry_events` en modo solo lectura.

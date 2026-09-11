@@ -18,6 +18,14 @@ export const COUNTRY_LABELS: Record<CountryCode, string> = {
 
 export const COUNTRY_OPTIONS = Object.keys(COUNTRY_LABELS) as CountryCode[];
 
+// Misma convención que COUNTRY_CURRENCY en services/api/models.py —
+// usada para completar el campo `currency` requerido por
+// inbound_order_created (event-schemas.json) a partir de Ingredient.country.
+export const COUNTRY_CURRENCY: Record<CountryCode, "COP" | "USD"> = {
+  CO: "COP",
+  US: "USD",
+};
+
 export const REASON_LABELS: Record<ExitReason, string> = {
   consumption: "Consumo",
   waste: "Merma",
