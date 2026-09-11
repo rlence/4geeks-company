@@ -22,10 +22,22 @@ from fastapi.testclient import TestClient  # noqa: E402
 from auth import hash_password  # noqa: E402
 from database import password_reset_tokens_table, suppliers_table, users_table  # noqa: E402
 from main import app  # noqa: E402
+from routes.telemetry import _report_cache  # noqa: E402
 from supabase_client import get_supabase_client  # noqa: E402
 
 
+class FakeExecuteResult:
+    def __init__(self, data: list[dict]) -> None:
+        self.data = data
+
+
 class FakeSupabaseTable:
+    """Un solo fake sirve de escritura (upsert, POST /events) y lectura
+    (select/gte/lt/in_, GET /report) sobre la misma lista en memoria —
+    el filtrado real de la query de lectura no se valida acá (eso lo
+    cubre la verificación en vivo contra Supabase), solo la forma de la
+    respuesta y que analysis.py recibe algo iterable con .data."""
+
     def __init__(self, rows: list[dict]) -> None:
         self._rows = rows
         self._pending: list[dict] | None = None
@@ -36,14 +48,29 @@ class FakeSupabaseTable:
         self._pending = rows
         return self
 
-    def execute(self) -> None:
-        assert self._pending is not None
+    def select(self, columns: str = "*") -> "FakeSupabaseTable":
+        return self
+
+    def gte(self, column: str, value: str) -> "FakeSupabaseTable":
+        return self
+
+    def lt(self, column: str, value: str) -> "FakeSupabaseTable":
+        return self
+
+    def in_(self, column: str, values: list[str]) -> "FakeSupabaseTable":
+        return self
+
+    def execute(self) -> FakeExecuteResult | None:
+        if self._pending is None:
+            return FakeExecuteResult(list(self._rows))
+
         existing_ids = {row["event_id"] for row in self._rows}
         for row in self._pending:
             if row["event_id"] not in existing_ids:
                 self._rows.append(row)
                 existing_ids.add(row["event_id"])
         self._pending = None
+        return None
 
 
 class FakeSupabaseClient:
@@ -54,9 +81,11 @@ class FakeSupabaseClient:
     def __init__(self) -> None:
         self.inserted_rows: list[dict] = []
         self.upsert_calls: list[list[dict]] = []
+        self.table_calls: int = 0
 
     def table(self, name: str) -> FakeSupabaseTable:
         assert name == "telemetry_events"
+        self.table_calls += 1
         table = FakeSupabaseTable(self.inserted_rows)
         original_upsert = table.upsert
 
@@ -72,8 +101,10 @@ class FakeSupabaseClient:
 def fake_supabase() -> FakeSupabaseClient:
     fake = FakeSupabaseClient()
     app.dependency_overrides[get_supabase_client] = lambda: fake
+    _report_cache.clear()
     yield fake
     app.dependency_overrides.pop(get_supabase_client, None)
+    _report_cache.clear()
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:

@@ -42,10 +42,15 @@ mail.py           # envío del email de restablecimiento vía Resend (httpx, sin
 routes/
   suppliers.py    # los 6 endpoints del directorio
   auth.py         # login, forgot-password, reset-password, change-password
-  telemetry.py    # POST /telemetry/events — valida por evento, bulk insert en Supabase
+  telemetry.py    # POST /telemetry/events (upsert en Supabase) + GET /telemetry/report (cache 60s)
 sql/
   telemetry_events.sql # DDL de la tabla telemetry_events, correr a mano en Supabase
 seed.py           # SUPPLIERS_SEED + USERS_SEED, siembra idempotente
+
+../telemetry/
+  analysis.py     # pipeline Pandas del reporte técnico — sibling de api/, importado por
+                   # routes/telemetry.py vía sys.path (no es un paquete uv instalable, ver
+                   # context/plans/project-6.3-telemetria.md Decisión 1)
 ```
 
 ## Notas de negocio — Proveedores
@@ -60,3 +65,8 @@ seed.py           # SUPPLIERS_SEED + USERS_SEED, siembra idempotente
 - `POST /auth/reset-password` — `{ token, new_password }` → `400` si el token es inválido, ya usado o expiró; en éxito actualiza la contraseña e invalida el token.
 - `POST /auth/change-password` — requiere `Authorization: Bearer <access_token>`. `{ current_password, new_password }` → `400` si `current_password` no coincide.
 - No hay `POST /auth/register` ni página de registro — los usuarios se seedean (`USERS_SEED` en `seed.py`), igual que los proveedores. Usuarios de prueba: `felipe.guerrero@brasaland.com` / `jake.morrison@brasaland.com`, password `brasaland2026`.
+
+## Notas de negocio — Telemetría
+
+- `POST /telemetry/events` — `{ events: [...] }` → `{ received, stored, rejected }`. Cada evento se valida contra el envelope `TelemetryEvent`; los inválidos no cancelan el lote. Upsert por `event_id` (no `insert`): reintentos del frontend con el mismo lote no duplican filas.
+- `GET /telemetry/report` — reporte técnico (no de negocio): volumen por día/tipo, tasa de error diaria, latencia p95 por endpoint por día, y tasa de fallos de login. Query params opcionales `start_date`/`end_date` (ISO 8601); por defecto, últimos 7 días. Cache en memoria de 60s por combinación de fechas — no recalcula en cada request.
