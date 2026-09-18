@@ -18,12 +18,26 @@ services:
     networks:
       - brasaland-net
 
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"
+    # Primer servicio con estado del compose: sin este volumen, la colección
+    # brasaland_knowledge se pierde en cada `docker compose down` y habría
+    # que re-ejecutar setup() (ver context/plans/hito7.md, Fase 0).
+    volumes:
+      - qdrant-storage:/qdrant/storage
+    networks:
+      - brasaland-net
+
   api:
     build:
       context: .
       dockerfile: services/Dockerfile
     ports:
       - "8000:8000"
+    depends_on:
+      - qdrant
     volumes:
       - ./services/api:/app/services/api
       - ./services/telemetry:/app/services/telemetry
@@ -31,6 +45,7 @@ services:
       - ./data/pipelines:/app/data/pipelines
       - ./data/process:/app/data/process
       - ./data/eval:/app/data/eval
+      - ./docs/company-knowledge-base:/app/docs/company-knowledge-base
     env_file:
       - .env
     networks:
@@ -39,3 +54,6 @@ services:
 networks:
   brasaland-net:
     driver: bridge
+
+volumes:
+  qdrant-storage:
