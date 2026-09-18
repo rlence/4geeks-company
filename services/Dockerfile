@@ -17,6 +17,10 @@ COPY services/telemetry/ /app/services/telemetry
 COPY services/reporting/ /app/services/reporting
 COPY data/pipelines/ /app/data/pipelines
 COPY data/process/ /app/data/process
+# El corpus que indexa setup() (Hito 7). La API no lo lee en runtime
+# —solo retrieve()/query() contra Qdrant— pero viaja en la imagen para
+# poder re-indexar desde dentro del contenedor.
+COPY docs/company-knowledge-base/ /app/docs/company-knowledge-base
 
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

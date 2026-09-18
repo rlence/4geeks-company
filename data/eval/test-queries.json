@@ -1,0 +1,91 @@
+{
+  "description": "Preguntas de evaluación del asistente de conocimiento (Hito 7). Cada entrada apunta al chunk fuente esperado por (source_document, chunk_index), que es la forma verificable que admite el CONTEXT §5 (\"la respuesta esperada o el chunk fuente esperado\"). `expected_section` es solo para lectura humana. Se mide Recall@3: el chunk esperado debe estar entre los 3 primeros resultados de retrieve().",
+  "collection": "brasaland_knowledge",
+  "recall_at_3_threshold": 0.8,
+  "queries": [
+    {
+      "question": "¿Cuántos puntos necesito para llegar al nivel Oro?",
+      "expected_source_document": "loyalty-program",
+      "expected_chunk_index": 1,
+      "expected_section": "Niveles del programa",
+      "expected_answer": "50 puntos o más; da 15% de descuento permanente y acceso anticipado al menú de temporada."
+    },
+    {
+      "question": "¿Desde cuántos puntos se pueden redimir y en qué incrementos?",
+      "expected_source_document": "loyalty-program",
+      "expected_chunk_index": 2,
+      "expected_section": "redención de puntos",
+      "expected_answer": "Desde 15 puntos acumulados, en incrementos de 5. Cada 5 puntos equivalen a 20.000 COP (20 USD)."
+    },
+    {
+      "question": "¿Un cliente puede usar sus puntos si pide a domicilio?",
+      "expected_source_document": "loyalty-program",
+      "expected_chunk_index": 4,
+      "expected_section": "Preguntas frecuentes de clientes",
+      "expected_answer": "Sí, aplican igual que en el local siempre que el pedido se haga desde la app."
+    },
+    {
+      "question": "¿La Costilla BBQ tiene alérgenos?",
+      "expected_source_document": "menu-allergens",
+      "expected_chunk_index": 1,
+      "expected_section": "Platos principales y sus alérgenos declarados",
+      "expected_answer": "Contiene soya (salsa) y puede contener trazas de maní en algunas líneas de producción de la salsa importada."
+    },
+    {
+      "question": "¿Qué debo decirle a un cliente con alergia severa antes de tomar su pedido?",
+      "expected_source_document": "menu-allergens",
+      "expected_chunk_index": 2,
+      "expected_section": "Protocolo ante alergias reportadas por el cliente",
+      "expected_answer": "Que nunca se garantiza cero riesgo de contaminación cruzada; debe comunicarse explícitamente. Además se informa a cocina antes de preparar y se usan utensilios y superficie limpios y separados."
+    },
+    {
+      "question": "¿A partir de cuánto desperdicio de carne hay que dejar una nota explicativa?",
+      "expected_source_document": "waste-protocol",
+      "expected_chunk_index": 1,
+      "expected_section": "Procedimiento diario",
+      "expected_answer": "Todo desperdicio superior a 2 kg de proteína cárnica en un solo turno requiere nota explicativa obligatoria."
+    },
+    {
+      "question": "¿Cuándo tengo que escalar un caso de merma a Felipe Guerrero?",
+      "expected_source_document": "waste-protocol",
+      "expected_chunk_index": 3,
+      "expected_section": "Causas que requieren escalamiento a Felipe Guerrero directamente",
+      "expected_answer": "Desperdicio de proteína cárnica premium (lomo, costilla) superior a 5 kg en una semana en el mismo local, o tres semanas consecutivas de merma no explicada."
+    },
+    {
+      "question": "¿Cuál es la meta de desperdicio mensual de un local?",
+      "expected_source_document": "waste-protocol",
+      "expected_chunk_index": 4,
+      "expected_section": "Meta operativa",
+      "expected_answer": "Mantener el desperdicio total por debajo del 4% del costo de insumos mensual. Superar el 6% dos meses seguidos activa un plan de mejora."
+    },
+    {
+      "question": "¿Hasta qué hora puedo enviar el pedido semanal a proveedores?",
+      "expected_source_document": "supplier-ordering",
+      "expected_chunk_index": 0,
+      "expected_section": "Procedimiento de Pedido a Proveedores",
+      "expected_answer": "Los lunes antes de las 10:00 a.m. hora local."
+    },
+    {
+      "question": "¿Cada cuánto se piden los vegetales y en cuánto tiempo llegan?",
+      "expected_source_document": "supplier-ordering",
+      "expected_chunk_index": 1,
+      "expected_section": "Categorías de proveedores y frecuencia de pedido",
+      "expected_answer": "Dos veces por semana (lunes y jueves), con entrega en 24 horas."
+    },
+    {
+      "question": "¿Cuánto recarga un pedido de emergencia sobre el precio de lista?",
+      "expected_source_document": "supplier-ordering",
+      "expected_chunk_index": 2,
+      "expected_section": "Regla de stock mínimo",
+      "expected_answer": "Un 8% sobre el precio de lista."
+    },
+    {
+      "question": "¿Quién aprueba un pedido de emergencia de más de 500 dólares?",
+      "expected_source_document": "supplier-ordering",
+      "expected_chunk_index": 3,
+      "expected_section": "aprobación de pedidos de emergencia",
+      "expected_answer": "Lucía Fernández, Gerente de Compras."
+    }
+  ]
+}

@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from routes.auth import router as auth_router
+from routes.knowledge import router as knowledge_router
 from routes.suppliers import router as suppliers_router
 from routes.telemetry import router as telemetry_router
 
@@ -50,6 +51,7 @@ app.include_router(suppliers_router)
 app.include_router(auth_router)
 app.include_router(telemetry_router)
 app.include_router(reporting_router)
+app.include_router(knowledge_router)
 
 
 @app.get("/health")
