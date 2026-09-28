@@ -100,3 +100,18 @@
 - Abrir PR `feature/project-5-caching` → `main` con las tablas de timing de `CACHING_REPORT.md` en la descripción (Project 5). Antes de cerrar: confirmar en un navegador real (no disponible en la sesión que implementó esto) que el Profiler de React DevTools muestra `SupplierSummary` sin recomputar en cada tecla del buscador de `/suppliers`.
 - ~~Abrir PR `feature/project-6-telemetria` → `main`~~ — mergeada (`docs: telemetry design plan (#13)`). Antes de instrumentar cualquiera de los 18 eventos en código real: resolver el modelo `Location` (falta el mapeo `location_id → country`) y agregar el campo `waste_reason` a `OutboundOrderForm.tsx` — ambos documentados como riesgos abiertos en `docs/telemetry/telemetry-plan.md` §6.
 - Abrir PR `feature/hito-6-part-1` → `main` con `data/pipelines/PIPELINE_DESIGN.md` en la descripción (Hito 6, Parte 1). La Parte 2/3 de este hito construye el código de orquestación real (Prefect) — bloqueada por la misma infraestructura que Project 6: `telemetry_events` y el backend `/inventory` siguen sin existir como código corriendo.
+
+## Project 7 — Agente de soporte, Parte 1 (28-09-2026)
+
+- Implementados grafo compilado, bifurcaciones por pregunta vacía/contexto vacío, checkpoints SQLite persistentes, trazas por corrida y `POST /agent/query`. Se conserva el RAG existente.
+- Añadidos tests de contratos, fallos, concurrencia, reapertura de checkpoints y endpoint; cuatro evals offline sobre trazas guardadas. Fixtures CI identificadas explícitamente como simuladas.
+- Rama de trabajo existente: `feature/project-7-agent-support`. Diseño y comandos en `docs/agent/agent-design.md`.
+- Pendiente de cierre: configurar `LLM_API_KEY`, capturar corridas reales, comprobar anclaje y Recall@3, adjuntar evidencias y preparar PR propio. No se considera validada la calidad real mediante mocks.
+
+- Validación: 36 pruebas focalizadas pasaron; build sdist/wheel correcto. Suite ampliada: 118 pasaron, 5 bloqueadas por puertos del sandbox; repetidos los dos módulos afectados con servidor local permitido, 10/10 pasaron (aviso de logging de Prefect al cerrar).
+
+### Actualización de validación real
+
+La clave `LLM_API_KEY` ya está configurada y la aplicación la carga. La llamada real a embeddings responde HTTP 429 con `type=insufficient_quota` y `code=credit_balance_exhausted`. La validación real sigue pendiente de crédito del proveedor o acceso alternativo de la academia. No se cambiaron los modelos ni el umbral de recuperación.
+
+Docker y Qdrant ya están arrancados y Qdrant responde en el puerto 6333. La colección `brasaland_knowledge` todavía no existe: cuando haya crédito, ejecutar la indexación del RAG antes de capturar las corridas del agente.

@@ -52,3 +52,15 @@ npx create-next-app@latest <nombre> --typescript --app --tailwind --eslint
 - Cualquier app de `uis/` que consuma un backend propio (no una API mock externa) necesita `CORSMiddleware` en ese backend con el origin exacto del dev server (`http://localhost:3000`) — sin esto, el `fetch` del navegador falla con "Failed to fetch" aunque `curl` a la misma URL funcione (bloqueo de CORS, no un problema de red). Ver `services/api/main.py`.
 - Ningún paquete/app de un hito ya entregado se copia a otro lugar — se importa desde su ubicación original (ver [`.agents/rules/monorepo-imports.md`](../.agents/rules/monorepo-imports.md)).
 - `uis/backoffice` importa `packages/data-utils` fuera de su propio directorio de proyecto Next.js — requiere `experimental.externalDir: true` en su `next.config.ts`, ya que no hay workspace configurado que resuelva ese import de otra forma. **Verificado en Hito 4**: `experimental.externalDir` solo funciona de forma confiable con el compilador **webpack** de Next.js — Turbopack (default desde Next 16) no resuelve módulos fuera del proyecto de la misma forma. Además, como `packages/data-utils` usa resolución NodeNext (imports internos con extensión `.js` apuntando a `.ts`), hace falta `config.resolve.extensionAlias = { ".js": [".ts", ".tsx", ".js"] }` en la función `webpack()` de `next.config.ts` para que esos imports internos se resuelvan. Por eso los scripts `dev`/`build` de `uis/backoffice` fuerzan `--webpack` explícitamente.
+
+## Project 7 — Agente de soporte (Parte 1)
+
+- `services/api/support_agent/`: LangGraph, estado mínimo y nodos separados que importan `data/pipelines/rag.py`. `POST /agent/query` convive con `/knowledge/query`.
+- Checkpoints SQLite en `services/api/.agent-runtime/`, configurable mediante `AGENT_RUNTIME_DIR`, con trazas JSON atómicas por corrida y UUID por consulta. Inicialización/cierre mediante lifespan de FastAPI.
+- Dependencias gestionadas en `services/api/pyproject.toml`/`uv.lock`; exportación de `requirements.txt` actualizada para Docker.
+- Evals offline en `tests/pipelines/test_agent_evals.py`; fixtures simuladas por defecto y opción `--agent-traces-dir` que exige trazas reales. Captura e inspección mediante scripts independientes.
+- Ver `docs/agent/agent-design.md`. Falta validar contra proveedores reales: `LLM_API_KEY` no estaba disponible durante la implementación.
+
+### Actualización de validación real
+
+La clave `LLM_API_KEY` ya está configurada y la aplicación la carga. La llamada real a embeddings responde HTTP 429 con `type=insufficient_quota` y `code=credit_balance_exhausted`. La validación real sigue pendiente de crédito del proveedor o acceso alternativo de la academia. No se cambiaron los modelos ni el umbral de recuperación.

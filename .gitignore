@@ -4,3 +4,7 @@ dist/
 .env.*
 __pycache__/
 *.pyc
+
+# Agent checkpoints and private runtime traces
+services/api/.agent-runtime/
+artifacts/agent-traces/

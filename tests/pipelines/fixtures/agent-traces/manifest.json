@@ -1,0 +1,9 @@
+{
+  "mode": "mock",
+  "cases": {
+    "gold": "43ea8c57-f912-430c-bbe8-54147a85ad02.json",
+    "allergens": "d40ebc35-53ba-4926-ae88-7d7e4c23be45.json",
+    "unknown": "5a9bf82a-abd5-47b4-8e24-ed4f4e1124af.json",
+    "empty": "3a3d9157-b32c-44cc-ae41-12d46105366a.json"
+  }
+}
