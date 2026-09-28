@@ -9,3 +9,5 @@
 services/api/tests
 services/api/db.json
 uis/talent-pipeline-tracker
+services/api/.agent-runtime
+artifacts/agent-traces

@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "run_id": "43ea8c57-f912-430c-bbe8-54147a85ad02",
+  "started_at": "2026-09-28T18:32:40.911199Z",
+  "finished_at": "2026-09-28T18:32:40.918712Z",
+  "question": "¿Cuántos puntos necesito para llegar al nivel Oro?",
+  "status": "completed",
+  "provenance": {
+    "mode": "mock",
+    "commit": "35edb5624d88ae577b4e27a788e66835b8eb2889",
+    "working_tree_dirty": true,
+    "files_sha256": {
+      "docs/company-knowledge-base/brasaland-loyalty-program.es.md": "413fc5cad25b7f52d1cdbea5181cc11eac22f23192c9ac66da49183bf7ddf27e",
+      "docs/company-knowledge-base/brasaland-menu-allergens.es.md": "d00a9c18ae705ec98b3b4ac50e89a72ee28530ac2cd75dd4ed68a15c261b7df5",
+      "docs/company-knowledge-base/brasaland-supplier-ordering.es.md": "becc6edac2e9f08c8af416162ebcd3b40f54046f07a39541ecdd5d6b40e8c4b7",
+      "docs/company-knowledge-base/brasaland-waste-protocol.es.md": "1fb79f929cc44dc46a59ccf910707f918ad281e84f4a216cec464cab09506322",
+      "services/api/support_agent/__init__.py": "65d8adadc4307516c255dc8fd10ea194921ae46710f9402e8fe95d48d296d66b",
+      "services/api/support_agent/graph.py": "4aa0e3bfa615d8d25fe9cffb2b750772b23402f602c8fa56437b93925fcba59d",
+      "services/api/support_agent/service.py": "dfcf7efdbe619c15595b29b7d436ad9513de6df21aa2123a414cd179abced462",
+      "services/api/support_agent/traces.py": "69a1201832f80e98c9660acfd81bbd9197986c5058cb78db36bf17f3b7a40a9c",
+      "data/pipelines/rag.py": "09a86246cf3b3b0944e033934aaacd117998373589047826adf503576ddc8f3a",
+      "data/process/rag_index.py": "3938c4d055853b821a02a802a7f1d066f3992c93bf8545228a53cd7f0159472b",
+      "services/api/uv.lock": "9bd448da01b0c69512aaee37302c741e6ac615f08b6e97ddf15b3c918d23a58f"
+    },
+    "generation_model": "unconfigured",
+    "embedding_model": "unconfigured",
+    "k": 5,
+    "min_score": 0.35
+  },
+  "events": [
+    {
+      "node": "receive_question",
+      "status": "completed",
+      "output": {
+        "question": "¿Cuántos puntos necesito para llegar al nivel Oro?"
+      },
+      "next_node": "retrieve_context",
+      "error_code": null
+    },
+    {
+      "node": "retrieve_context",
+      "status": "completed",
+      "output": {
+        "context": [
+          {
+            "company": "brasaland",
+            "source_document": "loyalty-program",
+            "section": "Programa de Lealtad \"Brasa Points\"",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "Programa de Lealtad \"Brasa Points\"\n\nBrasa Points es el programa de fidelización de Brasaland. Por cada 10.000 COP\n(o 10 USD en Florida) gastados, el cliente acumula 1 punto. Los puntos no\nvencen mientras la cuenta esté activa (con al menos una compra cada 12 meses)."
+          },
+          {
+            "company": "brasaland",
+            "source_document": "loyalty-program",
+            "section": "Niveles del programa",
+            "language": "es",
+            "chunk_index": 1,
+            "text": "Programa de Lealtad \"Brasa Points\" > Niveles del programa\n\nNiveles del programa:\n- Bronce (0-19 puntos): 5% de descuento en bebidas los martes.\n- Plata (20-49 puntos): 10% de descuento en el plato principal, una vez al mes.\n- Oro (50+ puntos): 15% de descuento permanente y acceso a menú de temporada\n  antes que el público general."
+          },
+          {
+            "company": "brasaland",
+            "source_document": "loyalty-program",
+            "section": "Programa de Lealtad \"Brasa Points\"",
+            "language": "es",
+            "chunk_index": 2,
+            "text": "Programa de Lealtad \"Brasa Points\"\n\nLos puntos se pueden redimir desde 15 puntos acumulados, en incrementos de 5.\nCada 5 puntos redimidos equivalen a 20.000 COP (20 USD) de descuento en la\ncuenta. No se pueden combinar con otras promociones activas del mes."
+          },
+          {
+            "company": "brasaland",
+            "source_document": "loyalty-program",
+            "section": "Programa de Lealtad \"Brasa Points\"",
+            "language": "es",
+            "chunk_index": 3,
+            "text": "Programa de Lealtad \"Brasa Points\"\n\nEl programa está disponible tanto en las tarjetas físicas de sello (en proceso\nde descontinuación) como en la app digital. Un cliente puede transferir sus\npuntos de tarjeta física a la app una sola vez, presentando la tarjeta física\ncompleta en cualquier local."
+          },
+          {
+            "company": "brasaland",
+            "source_document": "loyalty-program",
+            "section": "Preguntas frecuentes de clientes",
+            "language": "es",
+            "chunk_index": 4,
+            "text": "Programa de Lealtad \"Brasa Points\" > Preguntas frecuentes de clientes\n\nPreguntas frecuentes de clientes:\n- \"¿Los puntos se pueden usar en domicilios?\" Sí, aplican igual que en el\n  local, siempre que el pedido se haga desde la app.\n- \"¿Puedo compartir mi cuenta con un familiar?\" No, cada cuenta de Brasa\n  Points es individual y no transferible entre personas.\n- \"¿Qué pasa si cambio de país?\" Los puntos son válidos en cualquier local de\n  Brasaland, tanto en Colombia como en Florida, al tipo de cambio del día."
+          }
+        ]
+      },
+      "next_node": "generate_answer",
+      "error_code": null
+    },
+    {
+      "node": "generate_answer",
+      "status": "completed",
+      "output": {
+        "answer": "Necesitas 50 puntos o más para Oro, con 15% de descuento permanente."
+      },
+      "next_node": "END",
+      "error_code": null
+    }
+  ],
+  "answer": "Necesitas 50 puntos o más para Oro, con 15% de descuento permanente.",
+  "error_code": null
+}

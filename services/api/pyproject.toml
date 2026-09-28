@@ -17,6 +17,8 @@ dependencies = [
     "prefect>=3",
     "qdrant-client>=1.19.1",
     "openai>=3.16.0",
+    "langgraph>=1.2.12",
+    "langgraph-checkpoint-sqlite>=3.1.1",
 ]
 
 [project.scripts]
@@ -46,6 +48,7 @@ only-include = [
     "auth.py",
     "mail.py",
     "routes",
+    "support_agent",
 ]
 
 [tool.pytest.ini_options]

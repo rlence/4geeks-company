@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import logging
 import sys
 import time
@@ -5,6 +7,9 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+from routes.agent import router as agent_router
+from support_agent.service import open_service
 
 from routes.auth import router as auth_router
 from routes.knowledge import router as knowledge_router
@@ -16,7 +21,18 @@ from routes.telemetry import router as telemetry_router
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "reporting"))
 from endpoints import router as reporting_router  # noqa: E402
 
+@asynccontextmanager
+async def lifespan(app):
+    with open_service() as service:
+        app.state.support_agent = service
+        try:
+            yield
+        finally:
+            app.state.support_agent = None
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Brasaland — API",
     description="API de gestión del directorio de proveedores y autenticación de usuarios.",
     version="0.1.0",
@@ -52,6 +68,7 @@ app.include_router(auth_router)
 app.include_router(telemetry_router)
 app.include_router(reporting_router)
 app.include_router(knowledge_router)
+app.include_router(agent_router)
 
 
 @app.get("/health")
