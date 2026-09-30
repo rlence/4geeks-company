@@ -1,5 +1,6 @@
 """Adaptador HTTP del grafo compilado, sin lógica de RAG."""
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Header
+from auth import get_current_user
 from pydantic import BaseModel, ConfigDict, Field
 
 from support_agent.service import AgentError
@@ -17,12 +18,14 @@ class AgentQueryResponse(BaseModel):
 
 
 @router.post("/query", response_model=AgentQueryResponse)
-def query_agent(payload: AgentQueryRequest, request: Request, response: Response):
+def query_agent(payload: AgentQueryRequest, request: Request, response: Response, authorization: str = Header(default="")):
+    # RAG público conservado; identidad validada solo cuando se proporciona sesión.
+    owner = str(get_current_user(authorization).doc_id) if authorization else None
     service = getattr(request.app.state, "support_agent", None)
     if service is None:
         raise HTTPException(503, "El agente no está disponible en este momento.")
     try:
-        answer, run_id = service.query(payload.question)
+        answer, run_id = service.query(payload.question, owner=owner)
     except AgentError as exc:
         invalid = exc.code == "invalid_question"
         raise HTTPException(

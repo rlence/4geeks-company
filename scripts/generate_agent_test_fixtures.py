@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "services/api"))
 from capture_agent_traces import CASES
 from support_agent.graph import rag
+from support_agent import routing
+from support_agent.contracts import Decision
 from support_agent.service import AgentError, open_service
 import rag_index
 
@@ -40,7 +42,7 @@ def main():
         return "La Costilla BBQ puede contener trazas de maní. Nunca se garantiza cero riesgo de contaminación cruzada."
 
     manifest = {"mode": "mock", "cases": {}}
-    with tempfile.TemporaryDirectory() as runtime, patch.object(rag, "retrieve", retrieve), patch.object(rag, "generate_answer", generate):
+    with tempfile.TemporaryDirectory() as runtime, patch.object(rag, "retrieve", retrieve), patch.object(rag, "generate_answer", generate), patch.object(routing, "classify", lambda q: Decision(source="rag", rag_question=q)):
         with open_service(runtime, args.output_dir, mode="mock") as service:
             for case, question in CASES.items():
                 try:

@@ -16,7 +16,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="border-b border-gray-200 bg-white">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
             <span className="text-lg font-bold text-orange-700">Brasaland — Backoffice</span>
-            <nav className="flex items-center gap-4 text-sm">
+            <nav className="flex flex-wrap items-center gap-4 text-sm">
+              <Link href="/incidents" className="text-gray-600 hover:text-orange-700">Mis incidencias</Link>
               <Link href="/" className="text-gray-600 hover:text-orange-700">
                 Operaciones
               </Link>

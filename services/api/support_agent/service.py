@@ -12,7 +12,7 @@ from uuid import uuid4
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
-from .graph import ROOT, NodeFailure, StateContract, build_graph, rag, route_context, route_question
+from .graph import ROOT, NodeFailure, StateContract, build_graph, rag, next_node
 from .traces import Event, Trace, save_trace
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def provenance(mode="live"):
             return "unknown"
         return result.stdout.strip() if result.returncode == 0 else "unknown"
     corpus = ROOT / "docs" / "company-knowledge-base"
-    paths = [*sorted(corpus.glob("*.md")), *sorted(Path(__file__).parent.glob("*.py")),
+    paths = [*sorted(corpus.glob("*.md")), *sorted(Path(__file__).parent.rglob("*.py")),
              ROOT / "data/pipelines/rag.py", ROOT / "data/process/rag_index.py",
              ROOT / "services/api/uv.lock"]
     return {
@@ -53,7 +53,15 @@ class AgentService:
         self.provenance = provenance(mode)
         self.graph = build_graph().compile(checkpointer=checkpointer)
 
-    def query(self, question):
+    def query(self, question, *, owner=None):
+        from .tools.incidents import current_owner
+        token = current_owner.set(owner)
+        try:
+            return self._query(question)
+        finally:
+            current_owner.reset(token)
+
+    def _query(self, question):
         state = StateContract(question=question).model_dump()
         run_id = str(uuid4())
         trace = Trace(run_id=run_id, question=question, provenance=self.provenance)
@@ -63,14 +71,12 @@ class AgentService:
             for update in self.graph.stream(state, config, stream_mode="updates", durability="sync"):
                 for node, output in update.items():
                     state.update(output)
-                    next_node = (route_question(state) if node == "receive_question" else
-                                 route_context(state) if node == "retrieve_context" else "END")
-                    trace.events.append(Event(node=node, status="completed", output=output, next_node=next_node))
+                    trace.events.append(Event(node=node, status="completed", output=output, next_node=next_node(node, state)))
                     save_trace(self.trace_dir, trace)
             StateContract.model_validate(state)
             trace.answer = state["answer"]
             trace.error_code = state["error_code"]
-            trace.status = "invalid_question" if state["error_code"] else "completed"
+            trace.status = "invalid_question" if state["error_code"] else state["outcome"]
             trace.finished_at = datetime.now(timezone.utc)
             save_trace(self.trace_dir, trace)
         except Exception as exc:

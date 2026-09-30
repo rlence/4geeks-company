@@ -7,6 +7,9 @@ from support_agent.graph import rag
 
 @pytest.fixture
 def agent_client(tmp_path, monkeypatch):
+    from support_agent import routing
+    from support_agent.contracts import Decision
+    monkeypatch.setattr(routing, "classify", lambda q: Decision(source="rag", rag_question=q))
     monkeypatch.setenv("AGENT_RUNTIME_DIR", str(tmp_path))
     monkeypatch.setattr(rag, "retrieve", lambda q: [{"text": "Oro: 50 puntos"}])
     monkeypatch.setattr(rag, "generate_answer", lambda q, c: "Oro: 50 puntos.")
