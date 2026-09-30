@@ -1,0 +1,8 @@
+{
+  "mode": "mock",
+  "cases": {
+    "tool": "58c251dd-306a-406f-ad06-aa528d4e314b.json",
+    "rag": "4a66afcf-7055-4f9e-9c69-4197b4c4d07e.json",
+    "fallback": "8621f526-306a-48af-9652-2f107595bf4d.json"
+  }
+}

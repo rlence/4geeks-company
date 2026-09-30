@@ -8,3 +8,6 @@ __pycache__/
 # Agent checkpoints and private runtime traces
 services/api/.agent-runtime/
 artifacts/agent-traces/
+
+artifacts/agent-tools-traces/
+artifacts/incidents-validation.json

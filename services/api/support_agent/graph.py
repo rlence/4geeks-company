@@ -16,6 +16,10 @@ class AgentState(TypedDict):
     context: list[dict]
     answer: str | None
     error_code: str | None
+    decision: dict
+    tool_result: dict
+    rag_failed: bool
+    outcome: str
 
 
 class StateContract(BaseModel):
@@ -24,6 +28,10 @@ class StateContract(BaseModel):
     context: list[dict] = Field(default_factory=list)
     answer: str | None = None
     error_code: Literal["invalid_question"] | None = None
+    decision: dict = Field(default_factory=dict)
+    tool_result: dict = Field(default_factory=dict)
+    rag_failed: bool = False
+    outcome: Literal["completed", "partial", "fallback"] = "completed"
 
 
 class NodeFailure(RuntimeError):
@@ -41,7 +49,12 @@ def invalid_question(state):
 
 
 def retrieve_context(state):
-    context = rag.retrieve(state["question"])
+    try:
+        context = rag.retrieve(state.get("decision", {}).get("rag_question") or state["question"])
+    except Exception:
+        if state.get("decision", {}).get("source") == "both":
+            return {"context": [], "rag_failed": True}
+        raise
     StateContract(question=state["question"], context=context)
     if any(not isinstance(chunk.get("text"), str) for chunk in context):
         raise ValueError("Payload sin texto")
@@ -49,17 +62,26 @@ def retrieve_context(state):
 
 
 def generate_answer(state):
-    answer = rag.generate_answer(state["question"], state["context"])
+    try:
+        answer = rag.generate_answer(state.get("decision", {}).get("rag_question") or state["question"], state["context"])
+    except Exception:
+        if state.get("decision", {}).get("source") == "both":
+            return {"answer": None, "rag_failed": True}
+        raise
     if not isinstance(answer, str) or not answer.strip():
+        if state.get("decision", {}).get("source") == "both":
+            return {"answer": None, "rag_failed": True}
         raise ValueError("Respuesta del modelo vacía o inválida")
     return {"answer": answer.strip()}
 
 
-def route_question(state) -> Literal["retrieve_context", "invalid_question"]:
-    return "retrieve_context" if state["question"] else "invalid_question"
+def route_question(state) -> Literal["classify_request", "invalid_question"]:
+    return "classify_request" if state["question"] else "invalid_question"
 
 
-def route_context(state) -> Literal["generate_answer", "insufficient_context"]:
+def route_context(state) -> Literal["generate_answer", "insufficient_context", "combine_answer"]:
+    if state.get("rag_failed"):
+        return "combine_answer"
     return "generate_answer" if state["context"] else "insufficient_context"
 
 
@@ -73,20 +95,89 @@ def guarded(name, function):
     return run
 
 
+def classify_request(state):
+    from . import routing
+    from .contracts import Decision
+    decision = Decision.model_validate(routing.classify(state["question"]))
+    return {"decision": decision.model_dump()}
+
+
+def route_decision(state):
+    return {"rag": "retrieve_context", "incidents": "lookup_incident", "both": "lookup_incident",
+            "clarify": "clarify_request", "readonly": "clarify_request",
+            "unavailable": "routing_fallback"}[state["decision"]["source"]]
+
+
+def lookup_incident(state):
+    from .contracts import Decision
+    from .tools.incidents import lookup
+    return {"tool_result": lookup(Decision.model_validate(state["decision"]))}
+
+
+def route_tool(state):
+    if state["decision"]["source"] == "both": return "retrieve_context"
+    return "answer_incident" if state["tool_result"]["status"] == "ok" else "tool_fallback"
+
+
+def answer_incident(state):
+    from .tools.incidents import format_result
+    return {"answer": format_result(state["tool_result"]),
+            "outcome": "completed" if state["tool_result"]["status"] == "ok" else "fallback"}
+
+
+def clarify_request(state):
+    answer = ("Solo puedo consultar incidencias; los cambios se realizan desde el gestor."
+              if state["decision"]["source"] == "readonly" else
+              "Indica el número de ticket, su estado o su categoría para consultar tus incidencias.")
+    return {"answer": answer}
+
+
+def routing_fallback(state):
+    return {"answer": "No pude determinar qué fuente consultar ahora mismo. Inténtalo de nuevo.", "outcome": "fallback"}
+
+
+def route_answer(state):
+    return "combine_answer" if state.get("decision", {}).get("source") == "both" else END
+
+
+def combine_answer(state):
+    from .tools.incidents import format_result
+    policy = state.get("answer") if not state.get("rag_failed") else None
+    return {"answer": format_result(state["tool_result"]) + "\n\nPolíticas: " +
+            (policy or "No pude consultar la documentación ahora mismo."),
+            "outcome": "partial" if state.get("rag_failed") or state["tool_result"]["status"] != "ok" else "completed"}
+
+
+# Mismas funciones de ruta para el grafo y la traza: no reclasificar al registrar.
+ROUTES = {"receive_question": route_question, "classify_request": route_decision,
+          "lookup_incident": route_tool, "retrieve_context": route_context,
+          "generate_answer": route_answer, "insufficient_context": route_answer}
+
+
+def next_node(node, state):
+    value = ROUTES[node](state) if node in ROUTES else END
+    return "END" if value == END else value
+
+
 def build_graph():
     builder = StateGraph(AgentState)
-    for name, function in (
-        ("receive_question", receive_question),
-        ("invalid_question", invalid_question),
-        ("retrieve_context", retrieve_context),
-        ("generate_answer", generate_answer),
-        # Contexto vacío: conserva el contrato RAG de respuesta generada por LLM.
-        ("insufficient_context", generate_answer),
-    ):
+    nodes = {"receive_question": receive_question, "invalid_question": invalid_question,
+             "classify_request": classify_request, "retrieve_context": retrieve_context,
+             "generate_answer": generate_answer, "insufficient_context": generate_answer,
+             "lookup_incident": lookup_incident, "answer_incident": answer_incident,
+             "tool_fallback": answer_incident, "clarify_request": clarify_request,
+             "routing_fallback": routing_fallback, "combine_answer": combine_answer}
+    for name, function in nodes.items():
         builder.add_node(name, guarded(name, function))
     builder.add_edge(START, "receive_question")
-    builder.add_conditional_edges("receive_question", route_question)
-    builder.add_conditional_edges("retrieve_context", route_context)
-    for name in ("invalid_question", "generate_answer", "insufficient_context"):
-        builder.add_edge(name, END)
+    destinations = {"receive_question": ["classify_request", "invalid_question"],
+        "classify_request": ["retrieve_context", "lookup_incident", "clarify_request", "routing_fallback"],
+        "lookup_incident": ["retrieve_context", "answer_incident", "tool_fallback"],
+        "retrieve_context": ["generate_answer", "insufficient_context", "combine_answer"],
+        "generate_answer": ["combine_answer", END], "insufficient_context": ["combine_answer", END]}
+    for name in nodes:
+        if name in ROUTES:
+            builder.add_conditional_edges(name, ROUTES[name], destinations[name])
+        else:
+            builder.add_edge(name, END)
     return builder

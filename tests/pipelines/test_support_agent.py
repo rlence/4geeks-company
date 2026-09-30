@@ -10,6 +10,9 @@ from support_agent.traces import load_trace
 
 @pytest.fixture
 def providers(monkeypatch):
+    from support_agent import routing
+    from support_agent.contracts import Decision
+    monkeypatch.setattr(routing, "classify", lambda q: Decision(source="rag", rag_question=q))
     chunks = [{"text": "Oro (50+ puntos): 15%", "source_document": "loyalty-program"}]
     calls = []
     monkeypatch.setattr(rag, "retrieve", lambda q: calls.append(("retrieve", q)) or chunks)
@@ -25,8 +28,8 @@ def test_retrieves_once_and_passes_context_to_generation(tmp_path, providers):
     assert answer == "Oro: 50 puntos."
     assert calls == [("retrieve", "puntos Oro?"), ("generate", chunks)]
     trace = load_trace(tmp_path / "traces" / f"{run}.json")
-    assert [e.node for e in trace.events] == ["receive_question", "retrieve_context", "generate_answer"]
-    assert trace.events[1].output["context"] == chunks
+    assert [e.node for e in trace.events] == ["receive_question", "classify_request", "retrieve_context", "generate_answer"]
+    assert next(e for e in trace.events if e.node == "retrieve_context").output["context"] == chunks
     assert trace.status == "completed"
 
 
@@ -135,3 +138,10 @@ def test_retrieval_contract_failure_is_traced(tmp_path, monkeypatch):
     trace = load_trace(tmp_path / "traces" / f"{failure.value.run_id}.json")
     assert trace.events[-1].node == "retrieve_context"
     assert trace.status == "failed"
+
+
+@pytest.fixture(autouse=True)
+def deterministic_router(monkeypatch):
+    from support_agent import routing
+    from support_agent.contracts import Decision
+    monkeypatch.setattr(routing, "classify", lambda q: Decision(source="rag", rag_question=q))

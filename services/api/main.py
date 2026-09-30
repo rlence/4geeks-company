@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from routes.incidents import router as incidents_router
 from routes.agent import router as agent_router
 from support_agent.service import open_service
 
@@ -69,6 +70,7 @@ app.include_router(telemetry_router)
 app.include_router(reporting_router)
 app.include_router(knowledge_router)
 app.include_router(agent_router)
+app.include_router(incidents_router)
 
 
 @app.get("/health")

@@ -1,0 +1,84 @@
+{
+  "schema_version": 2,
+  "run_id": "8621f526-306a-48af-9652-2f107595bf4d",
+  "started_at": "2026-09-30T19:08:15.237369Z",
+  "finished_at": "2026-09-30T19:08:15.241007Z",
+  "question": "¿En qué estado está el ticket 482?",
+  "status": "fallback",
+  "provenance": {
+    "mode": "mock",
+    "commit": "31f460ed67812e02b90321585c39161d2f9424d2",
+    "working_tree_dirty": true,
+    "files_sha256": {
+      "docs/company-knowledge-base/brasaland-loyalty-program.es.md": "413fc5cad25b7f52d1cdbea5181cc11eac22f23192c9ac66da49183bf7ddf27e",
+      "docs/company-knowledge-base/brasaland-menu-allergens.es.md": "d00a9c18ae705ec98b3b4ac50e89a72ee28530ac2cd75dd4ed68a15c261b7df5",
+      "docs/company-knowledge-base/brasaland-supplier-ordering.es.md": "becc6edac2e9f08c8af416162ebcd3b40f54046f07a39541ecdd5d6b40e8c4b7",
+      "docs/company-knowledge-base/brasaland-waste-protocol.es.md": "1fb79f929cc44dc46a59ccf910707f918ad281e84f4a216cec464cab09506322",
+      "services/api/support_agent/__init__.py": "65d8adadc4307516c255dc8fd10ea194921ae46710f9402e8fe95d48d296d66b",
+      "services/api/support_agent/contracts.py": "ac29f75663271b4850f087868b954662649f34a8daebb1be7efffe19c3fcfbae",
+      "services/api/support_agent/graph.py": "b78119ff2dff79630beb946c7794953e9e99a07124b810200b26d746aed19553",
+      "services/api/support_agent/routing.py": "e7b6a0c2b5c3a58590ba943f28e3e46d5c39e242851c6573bd8dc0cd7dfdb641",
+      "services/api/support_agent/service.py": "76e7f631cf3c7fad1f25bbe05536d0f06977738cc4beb11f8737bc4a4a968a2e",
+      "services/api/support_agent/tools/__init__.py": "9add90bc8bc59e7c453e86fa1556370304976726af3aa44b96931299b9294ce9",
+      "services/api/support_agent/tools/incidents.py": "1c281e9f8806be761c1da2f7213b27efe0d5f29c182f5caa1d9756cee9905d6b",
+      "services/api/support_agent/traces.py": "f3ef904d80b53a0b88ebf15af2196d16bf834fa21422e524bbfd58e13761b807",
+      "data/pipelines/rag.py": "09a86246cf3b3b0944e033934aaacd117998373589047826adf503576ddc8f3a",
+      "data/process/rag_index.py": "3938c4d055853b821a02a802a7f1d066f3992c93bf8545228a53cd7f0159472b",
+      "services/api/uv.lock": "9bd448da01b0c69512aaee37302c741e6ac615f08b6e97ddf15b3c918d23a58f"
+    },
+    "generation_model": "unconfigured",
+    "embedding_model": "unconfigured",
+    "k": 5,
+    "min_score": 0.35
+  },
+  "events": [
+    {
+      "node": "receive_question",
+      "status": "completed",
+      "output": {
+        "question": "¿En qué estado está el ticket 482?"
+      },
+      "next_node": "classify_request",
+      "error_code": null
+    },
+    {
+      "node": "classify_request",
+      "status": "completed",
+      "output": {
+        "decision": {
+          "source": "incidents",
+          "ticket_id": 482,
+          "status": null,
+          "category": null,
+          "rag_question": ""
+        }
+      },
+      "next_node": "lookup_incident",
+      "error_code": null
+    },
+    {
+      "node": "lookup_incident",
+      "status": "completed",
+      "output": {
+        "tool_result": {
+          "status": "timeout",
+          "items": []
+        }
+      },
+      "next_node": "tool_fallback",
+      "error_code": null
+    },
+    {
+      "node": "tool_fallback",
+      "status": "completed",
+      "output": {
+        "answer": "No pude confirmar el estado de las incidencias ahora mismo. Inténtalo de nuevo.",
+        "outcome": "fallback"
+      },
+      "next_node": "END",
+      "error_code": null
+    }
+  ],
+  "answer": "No pude confirmar el estado de las incidencias ahora mismo. Inténtalo de nuevo.",
+  "error_code": null
+}

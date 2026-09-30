@@ -41,6 +41,8 @@ def traces(request):
 
 
 def assert_route(trace, nodes):
+    if trace.schema_version == 2 and nodes[1] == "retrieve_context":
+        nodes = [nodes[0], "classify_request", *nodes[1:]]
     assert [event.node for event in trace.events] == nodes
     assert [event.next_node for event in trace.events] == nodes[1:] + ["END"]
 
@@ -49,7 +51,7 @@ def test_gold_is_grounded_in_loyalty_policy(traces):
     trace = traces["gold"]
     assert "oro" in trace.question.lower()
     assert_route(trace, ["receive_question", "retrieve_context", "generate_answer"])
-    chunks = trace.events[1].output["context"]
+    chunks = next(e for e in trace.events if e.node == "retrieve_context").output["context"]
     policy = (ROOT / "docs/company-knowledge-base/brasaland-loyalty-program.es.md").read_text()
     assert "Oro (50+ puntos)" in policy
     assert any(c["source_document"] == "loyalty-program" and "Oro (50+ puntos)" in c["text"] for c in chunks)
@@ -67,7 +69,7 @@ def test_unknown_routes_to_honest_response(traces):
     trace = traces["unknown"]
     assert "horario" in trace.question.lower()
     assert_route(trace, ["receive_question", "retrieve_context", "insufficient_context"])
-    assert trace.events[1].output["context"] == []
+    assert next(e for e in trace.events if e.node == "retrieve_context").output["context"] == []
     assert re.search(r"no (?:tengo|dispongo|hay|contamos)|no (?:incluye|contiene)|sin información", trace.answer.lower())
     assert not re.search(r"\d", trace.answer), "No inventar un horario"
 
@@ -84,7 +86,7 @@ def test_allergens_follow_source_without_safety_guarantee(traces):
     trace = traces["allergens"]
     assert "maní" in trace.question.lower()
     assert_route(trace, ["receive_question", "retrieve_context", "generate_answer"])
-    chunks = trace.events[1].output["context"]
+    chunks = next(e for e in trace.events if e.node == "retrieve_context").output["context"]
     assert any(c["source_document"] == "menu-allergens" and "maní" in c["text"] for c in chunks)
     answer = trace.answer.lower()
     assert "maní" in answer and "trazas" in answer
