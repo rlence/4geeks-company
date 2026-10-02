@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LOCATION_OPTIONS, LOW_STOCK_THRESHOLD, REASON_LABELS, REASON_OPTIONS } from "@/lib/inventoryLabels";
-import { createOutboundOrder, getApiErrorMessage } from "@/lib/inventoryApi";
+import { ApiError, createOutboundOrder, getApiErrorMessage } from "@/lib/inventoryApi";
 import { useIngredients } from "@/hooks/useIngredients";
 import { track } from "@/lib/telemetry";
 import type { ExitReason } from "@/types/inventory";
@@ -20,7 +20,7 @@ const emptyState = {
 
 export const OutboundOrderForm = () => {
   const searchParams = useSearchParams();
-  const { status: ingredientsStatus, ingredients, error: ingredientsError } = useIngredients();
+  const { status: ingredientsStatus, ingredients, error: ingredientsError, reload } = useIngredients();
 
   const [form, setForm] = useState(() => ({
     ...emptyState,
@@ -123,8 +123,10 @@ export const OutboundOrderForm = () => {
 
       setForm(emptyState);
       setStatus("success");
+      reload();
     } catch (err) {
       setQuantityServerError(getApiErrorMessage(err));
+      if (err instanceof ApiError && err.status === 400) reload();
       setStatus("error");
     }
   };

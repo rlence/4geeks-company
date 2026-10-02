@@ -24,7 +24,7 @@ export const ProductTable = ({ ingredients }: ProductTableProps) => (
       <tbody className="divide-y divide-gray-100">
         {ingredients.map((ingredient) => (
           <tr key={ingredient.id}>
-            <td className="px-4 py-3 font-medium">{ingredient.name}</td>
+            <td className="px-4 py-3 font-medium"><Link href={`/inventory/products/${ingredient.id}`} className="text-orange-700 hover:underline">{ingredient.name}</Link></td>
             <td className="px-4 py-3 text-gray-500">{ingredient.sku}</td>
             <td className="px-4 py-3">{CATEGORY_LABELS[ingredient.category]}</td>
             <td className="px-4 py-3">{COUNTRY_LABELS[ingredient.country]}</td>

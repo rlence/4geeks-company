@@ -115,3 +115,13 @@
 La clave `LLM_API_KEY` ya está configurada y la aplicación la carga. La llamada real a embeddings responde HTTP 429 con `type=insufficient_quota` y `code=credit_balance_exhausted`. La validación real sigue pendiente de crédito del proveedor o acceso alternativo de la academia. No se cambiaron los modelos ni el umbral de recuperación.
 
 Docker y Qdrant ya están arrancados y Qdrant responde en el puerto 6333. La colección `brasaland_knowledge` todavía no existe: cuando haya crédito, ejecutar la indexación del RAG antes de capturar las corridas del agente.
+
+## Project 8 — Dependencia API de inventario (02-10-2026)
+
+Implementación en `feature/project-8-inventory-api`: seis rutas autenticadas `/inventory`, SQLModel/PostgreSQL, esquema privado con RLS y rol limitado, stock calculado, transacciones con bloqueo por ingrediente, capacidades explícitas de lectura/escritura, semilla transaccional e idempotente y scripts de preparación. El backoffice añade detalle de ingrediente y refresca saldo tras movimientos. No modifica la tool del agente: MCP se implementará después.
+
+La migración canónica está en `supabase/migrations/20261002012816_inventory_api.sql` y ya se aplicó al Supabase configurado. La conexión administrativa funciona. La API sigue pendiente de configurar `INVENTORY_DATABASE_URL` para inventory_app, habilitar su login y asignar usuarios en `INVENTORY_PERMISSIONS`; no se han concedido permisos a usuarios por defecto ni ejecutado semilla remota.
+
+Validación: 195 pruebas backend/pipelines (incluidas siete sobre PostgreSQL aislado) y 16 pruebas frontend pasaron. Build correcto. Avisos heredados de test JWT, logging Prefect y coverage lint. Prueba web delegada al usuario por su preferencia; integración remota completa y reinicio de aplicación pendientes. Ver `docs/inventory/design.md`. Sin commit ni PR todavía. Las notas históricas de Hito 5 que describen backend inexistente corresponden al estado previo.
+
+Asignación posterior autorizada: usuarios locales 1, 2 y 3 con `inventory:read` y `inventory:write`, persistida en TinyDB. Configuración de entorno explícita tiene prioridad. Sigue pendiente la conexión de ejecución del rol inventory_app.

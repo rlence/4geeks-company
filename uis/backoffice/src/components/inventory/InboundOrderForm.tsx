@@ -19,7 +19,7 @@ const emptyState = {
 
 export const InboundOrderForm = () => {
   const searchParams = useSearchParams();
-  const { status: ingredientsStatus, ingredients, error: ingredientsError } = useIngredients();
+  const { status: ingredientsStatus, ingredients, error: ingredientsError, reload } = useIngredients();
 
   const [form, setForm] = useState(() => ({
     ...emptyState,
@@ -85,6 +85,7 @@ export const InboundOrderForm = () => {
 
       setForm(emptyState);
       setStatus("success");
+      reload();
     } catch (err) {
       setServerError(getApiErrorMessage(err));
       setStatus("error");
