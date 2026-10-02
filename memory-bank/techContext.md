@@ -64,3 +64,11 @@ npx create-next-app@latest <nombre> --typescript --app --tailwind --eslint
 ### Actualización de validación real
 
 La clave `LLM_API_KEY` ya está configurada y la aplicación la carga. La llamada real a embeddings responde HTTP 429 con `type=insufficient_quota` y `code=credit_balance_exhausted`. La validación real sigue pendiente de crédito del proveedor o acceso alternativo de la academia. No se cambiaron los modelos ni el umbral de recuperación.
+
+## Project 8 — MCP de herramientas de compañía
+
+- `mcps/brasaland_company/` publica cinco tools mediante FastMCP sobre Streamable HTTP. MCP Auth actúa como resource server, publica metadata RFC 9728 y valida JWT OAuth/OIDC; no se usa la capa de auth de FastMCP.
+- Scope base `mcp:access`; scopes por capacidad `incidents:read`, `incidents:write` e `inventory:read`. El inventario rechaza explícitamente `operation=write`.
+- El mismo bearer llega a `services/api`, que admite el JWT local existente o un JWT OIDC configurado por `MCP_AUTH_ISSUER`, `MCP_AUTH_JWKS_URI` y `MCP_RESOURCE_URL`. La identidad externa se mapea a un usuario local sin confiar en headers de identidad.
+- El agente usa `langchain-mcp-adapters` en `support_agent/tools/mcp_incidents.py`; la integración directa anterior con el repositorio de incidencias fue eliminada.
+- `docker-compose.yml` levanta el MCP en el puerto 8010 y configura la URL interna del cliente del agente.

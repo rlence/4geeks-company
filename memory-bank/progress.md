@@ -13,6 +13,7 @@
 | Project 5 — Optimización de rendimiento (caching) | Completado | 2026-08-14 | Caché TTL en memoria para `GET /suppliers` y `GET /suppliers/{id}` en `services/api` (medido ~5-11x más rápido en cache hit, invalidación total en cada escritura), Lazy Loading (`next/dynamic`) en `SupplierForm` (`backoffice`) y `BrasaPointsForm` (`website`), `useMemo` en un resumen agregado nuevo de `/suppliers`. `CACHING_REPORT.md` en la raíz. Ver detalle. |
 | Project 6 — Plan de Telemetría | Completado | 2026-08-14 | Documento de diseño (`docs/telemetry/telemetry-plan.md` + `event-schemas.json`), sin código nuevo — 18 eventos (6 obligatorios del CONTEXT + 12 identificados) con Event Envelope, allowlists en JSON Schema draft-07, estrategia stream/batch justificada y riesgos/exclusiones. Ver detalle. |
 | Hito 6, Parte 1 — Diseño del Pipeline de Desempeño de Negocio | Completado (solo diseño) | 2026-08-17 | `data/pipelines/PIPELINE_DESIGN.md` — diseño del pipeline semanal (`reporting.weekly_location_performance`) que alimenta el Reporte Semanal de Costo y Merma de Mariana/Felipe: 5 KPIs, extracción/transformación/carga, upsert idempotente, log de corridas (`reporting.pipeline_runs`), mapeo a Prefect (flow + 4 tasks + states), 3 endpoints nuevos en `services/reporting/`. Extensión aditiva de `unit_cost` en `event-schemas.json` (`inbound_order_created`, `stock_waste_registered`). Sin código de orquestación todavía. Ver detalle. |
+| Project 8 — Servidor MCP OAuth | Implementado; validación externa pendiente | 2026-10-02 | FastMCP Streamable HTTP bajo `mcps/`, OAuth/OIDC con MCP Auth, tools tipadas de tickets e inventario de solo lectura y agente migrado a `langchain-mcp-adapters`. Pruebas automatizadas completas; falta ejecutar MCP Playground desde una URL pública de Codespaces con el proveedor OAuth real. |
 
 ## Hito 6, Parte 1 — detalle de lo entregado
 
@@ -127,3 +128,11 @@ Validación: 195 pruebas backend/pipelines (incluidas siete sobre PostgreSQL ais
 Asignación posterior autorizada: usuarios locales 1, 2 y 3 con `inventory:read` y `inventory:write`, persistida en TinyDB. Configuración de entorno explícita tiene prioridad. Sigue pendiente la conexión de ejecución del rol inventory_app.
 
 Actualización de inventario: el usuario autorizó reutilizar INVENTORY_ADMIN_DATABASE_URL en desarrollo cuando no exista INVENTORY_DATABASE_URL. Fallback implementado y probado, conservando prioridad de conexión dedicada y autorización por usuario. Semilla remota aplicada con ID 3; 25 pruebas focalizadas pasan. Pendiente usar rol limitado antes del despliegue.
+
+## Project 8 — Servidor MCP OAuth (02-10-2026)
+
+Implementación en `feature/mcp-oauth-tools`: servidor bajo `mcps/brasaland_company`, transporte Streamable HTTP, Protected Resource Metadata y validación de JWT mediante MCP Auth. Expone lectura, creación y ciclo de vida de incidencias, además de inventario de solo lectura con rechazo explícito de escrituras. Discovery exige `mcp:access`; cada tool comprueba su scope de negocio y registra cliente, tool y resultado.
+
+El agente dejó de importar el repositorio de incidencias y ahora carga `get_incident`/`list_incidents` mediante `langchain-mcp-adapters`. La API admite tokens OAuth revalidados y los mapea a usuarios locales sin aceptar una identidad arbitraria del cliente. Docker Compose incorpora el servicio `mcp` en el puerto 8010.
+
+Validación: 30 pruebas focalizadas de MCP, OAuth y migración del agente; 62 pruebas de pipelines; suite backend con 130 pasadas y 7 omitidas en sandbox, más las 5 pruebas de Prefect bloqueadas por sockets repetidas fuera del sandbox y aprobadas. `docker compose config --quiet` y compilación Python correctos. Pendiente exclusivamente la corrida manual de MCP Playground desde Codespaces con URL pública y proveedor OAuth real.

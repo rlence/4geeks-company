@@ -20,12 +20,15 @@ class AgentQueryResponse(BaseModel):
 @router.post("/query", response_model=AgentQueryResponse)
 def query_agent(payload: AgentQueryRequest, request: Request, response: Response, authorization: str = Header(default="")):
     # RAG público conservado; identidad validada solo cuando se proporciona sesión.
-    owner = str(get_current_user(authorization).doc_id) if authorization else None
+    access_token = None
+    if authorization:
+        get_current_user(authorization)
+        access_token = authorization.removeprefix("Bearer ").strip()
     service = getattr(request.app.state, "support_agent", None)
     if service is None:
         raise HTTPException(503, "El agente no está disponible en este momento.")
     try:
-        answer, run_id = service.query(payload.question, owner=owner)
+        answer, run_id = service.query(payload.question, access_token=access_token)
     except AgentError as exc:
         invalid = exc.code == "invalid_question"
         raise HTTPException(

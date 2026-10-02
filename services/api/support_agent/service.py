@@ -53,13 +53,13 @@ class AgentService:
         self.provenance = provenance(mode)
         self.graph = build_graph().compile(checkpointer=checkpointer)
 
-    def query(self, question, *, owner=None):
-        from .tools.incidents import current_owner
-        token = current_owner.set(owner)
+    def query(self, question, *, access_token=None):
+        from .tools.mcp_incidents import current_access_token
+        token = current_access_token.set(access_token)
         try:
             return self._query(question)
         finally:
-            current_owner.reset(token)
+            current_access_token.reset(token)
 
     def _query(self, question):
         state = StateContract(question=question).model_dump()

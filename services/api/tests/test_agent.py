@@ -43,6 +43,16 @@ def test_endpoint_masks_failure(agent_client, monkeypatch):
     assert response.headers["x-agent-run-id"]
 
 
+def test_endpoint_forwards_validated_bearer_to_mcp(agent_client, monkeypatch, existing_user, auth_headers):
+    from routes import agent
+    seen = []
+    service = app.state.support_agent
+    monkeypatch.setattr(service, "query", lambda question, access_token=None: (seen.append(access_token) or ("ok", "run")))
+    response = agent_client.post("/agent/query", json={"question": "ticket 1"}, headers=auth_headers)
+    assert response.status_code == 200
+    assert seen and seen[0] == auth_headers["Authorization"].removeprefix("Bearer ")
+
+
 def test_old_endpoint_keeps_working(agent_client, monkeypatch):
     from routes import knowledge
     monkeypatch.setattr(knowledge, "query", lambda q: "Respuesta anterior")
