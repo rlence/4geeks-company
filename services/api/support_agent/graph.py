@@ -110,7 +110,7 @@ def route_decision(state):
 
 def lookup_incident(state):
     from .contracts import Decision
-    from .tools.incidents import lookup
+    from .tools.mcp_incidents import lookup
     return {"tool_result": lookup(Decision.model_validate(state["decision"]))}
 
 
@@ -120,7 +120,7 @@ def route_tool(state):
 
 
 def answer_incident(state):
-    from .tools.incidents import format_result
+    from .tools.mcp_incidents import format_result
     return {"answer": format_result(state["tool_result"]),
             "outcome": "completed" if state["tool_result"]["status"] == "ok" else "fallback"}
 
@@ -141,7 +141,7 @@ def route_answer(state):
 
 
 def combine_answer(state):
-    from .tools.incidents import format_result
+    from .tools.mcp_incidents import format_result
     policy = state.get("answer") if not state.get("rag_failed") else None
     return {"answer": format_result(state["tool_result"]) + "\n\nPolíticas: " +
             (policy or "No pude consultar la documentación ahora mismo."),

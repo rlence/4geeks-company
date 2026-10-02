@@ -19,8 +19,10 @@ anyio==4.14.2
     #   httpx
     #   httpx2
     #   langsmith
+    #   mcp
     #   openai
     #   prefect
+    #   sse-starlette
     #   starlette
     #   watchfiles
 apprise==1.13.1
@@ -33,11 +35,16 @@ attrs==26.1.0
     # via
     #   cyclopts
     #   jsonschema
+    #   jsonschema-path
     #   referencing
+authlib==1.8.0
+    # via fastmcp
 bcrypt==5.0.0
     # via api
 beartype==0.22.9
-    # via py-key-value-aio
+    # via
+    #   py-key-value-aio
+    #   py-key-value-shared
 burner-redis==0.1.7
     # via pydocket
 cachetools==7.1.8
@@ -74,28 +81,45 @@ cronsim==2.7
     # via pydocket
 cryptography==50.0.1
     # via
+    #   authlib
+    #   joserfc
     #   prefect
     #   pyjwt
+    #   secretstorage
 cyclopts==4.25.2
-    # via prefect
+    # via
+    #   fastmcp
+    #   prefect
 dateparser==1.4.3
     # via prefect
 deprecation==2.1.0
     # via
     #   postgrest
     #   storage3
+diskcache==5.6.3
+    # via py-key-value-aio
 distro==1.9.0
     # via langsmith
+dnspython==2.8.0
+    # via email-validator
 docker==7.2.0
     # via prefect
 docstring-parser==0.18.0
     # via cyclopts
+email-validator==2.3.0
+    # via pydantic
 exceptiongroup==1.3.1
-    # via prefect
+    # via
+    #   fastmcp
+    #   prefect
+fakeredis==2.34.1
+    # via fastmcp
 fastapi==0.141.1
     # via
     #   api
     #   prefect
+fastmcp==2.14.7
+    # via api
 fsspec==2026.7.0
     # via prefect
 graphviz==0.21
@@ -132,8 +156,10 @@ httptools==0.8.0
 httpx==0.28.1
     # via
     #   api
+    #   fastmcp
     #   langchain-core
     #   langgraph-sdk
+    #   mcp
     #   postgrest
     #   prefect
     #   qdrant-client
@@ -141,6 +167,8 @@ httpx==0.28.1
     #   supabase
     #   supabase-auth
     #   supabase-functions
+httpx-sse==0.4.3
+    # via mcp
 httpx2==2.13.0
     # via
     #   langsmith
@@ -156,10 +184,21 @@ hyperframe==6.1.0
 idna==3.18
     # via
     #   anyio
+    #   email-validator
     #   httpx
     #   httpx2
     #   requests
     #   yarl
+jaraco-classes==3.4.0
+    # via keyring
+jaraco-context==6.1.2
+    # via keyring
+jaraco-functools==4.6.0
+    # via keyring
+jeepney==0.9.0 ; sys_platform == 'linux'
+    # via
+    #   keyring
+    #   secretstorage
 jinja2==3.1.6
     # via
     #   jinja2-humanize-extension
@@ -168,22 +207,35 @@ jinja2-humanize-extension==0.4.0
     # via prefect
 jiter==0.17.0
     # via openai
+joserfc==1.7.5
+    # via authlib
 jsonpatch==1.33
     # via
     #   langchain-core
     #   prefect
 jsonpointer==3.1.1
     # via jsonpatch
+jsonref==1.1.0
+    # via fastmcp
 jsonschema==4.26.0
-    # via prefect
+    # via
+    #   mcp
+    #   prefect
+jsonschema-path==0.5.0
+    # via fastmcp
 jsonschema-specifications==2025.9.1
     # via jsonschema
+keyring==25.7.0
+    # via py-key-value-aio
 langchain-core==1.6.5
     # via
+    #   langchain-mcp-adapters
     #   langgraph
     #   langgraph-checkpoint
     #   langgraph-prebuilt
     #   langgraph-sdk
+langchain-mcp-adapters==0.3.2
+    # via api
 langchain-protocol==0.0.19
     # via
     #   langchain-core
@@ -203,6 +255,8 @@ langgraph-sdk==0.4.5
     # via langgraph
 langsmith==0.14.1
     # via langchain-core
+lupa==2.8
+    # via fakeredis
 mako==1.4.1
     # via alembic
 markdown==3.10.3
@@ -213,8 +267,18 @@ markupsafe==3.0.3
     # via
     #   jinja2
     #   mako
+mcp==1.30.0
+    # via
+    #   fastmcp
+    #   langchain-mcp-adapters
+mcpauth==0.2.0b1
+    # via api
 mdurl==0.1.2
     # via markdown-it-py
+more-itertools==11.1.0
+    # via
+    #   jaraco-classes
+    #   jaraco-functools
 multidict==6.8.0
     # via yarl
 numpy==2.5.3
@@ -225,6 +289,8 @@ oauthlib==3.3.1
     # via requests-oauthlib
 openai==3.16.0
     # via api
+openapi-pydantic==0.6.0
+    # via fastmcp
 opentelemetry-api==1.44.0
     # via
     #   prefect
@@ -239,13 +305,20 @@ ormsgpack==1.12.2
 packaging==26.3
     # via
     #   deprecation
+    #   fastmcp
     #   langchain-core
     #   langsmith
     #   prefect
 pandas==3.0.5
     # via api
+pathable==0.6.0
+    # via jsonschema-path
 pathspec==1.1.1
     # via prefect
+pathvalidate==3.3.1
+    # via py-key-value-aio
+platformdirs==4.12.2
+    # via fastmcp
 pluggy==1.6.0
     # via prefect
 portalocker==3.2.0
@@ -266,18 +339,26 @@ psycopg==3.3.6
     # via api
 psycopg-binary==3.3.6 ; implementation_name != 'pypy'
     # via psycopg
-py-key-value-aio==0.4.5
-    # via pydocket
+py-key-value-aio==0.3.0
+    # via
+    #   fastmcp
+    #   pydocket
+py-key-value-shared==0.3.0
+    # via py-key-value-aio
 pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.13.4
     # via
     #   api
     #   fastapi
+    #   fastmcp
     #   langchain-core
     #   langgraph
     #   langsmith
+    #   mcp
+    #   mcpauth
     #   openai
+    #   openapi-pydantic
     #   postgrest
     #   prefect
     #   pydantic-extra-types
@@ -294,9 +375,13 @@ pydantic-core==2.46.4
 pydantic-extra-types==2.11.1
     # via prefect
 pydantic-settings==2.15.0
-    # via prefect
+    # via
+    #   mcp
+    #   prefect
 pydocket==0.25.2
-    # via prefect
+    # via
+    #   fastmcp
+    #   prefect
 pygments==2.20.0
     # via
     #   rich
@@ -304,7 +389,11 @@ pygments==2.20.0
 pyjwt==2.13.0
     # via
     #   api
+    #   mcp
+    #   mcpauth
     #   supabase-auth
+pyperclip==1.11.0
+    # via fastmcp
 python-dateutil==2.9.0.post0
     # via
     #   dateparser
@@ -313,10 +402,13 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
     # via
     #   api
+    #   fastmcp
     #   pydantic-settings
     #   uvicorn
 python-json-logger==4.2.0
     # via pydocket
+python-multipart==0.0.32
+    # via mcp
 python-slugify==8.0.4
     # via prefect
 pytz==2026.3.post1
@@ -326,10 +418,14 @@ pytz==2026.3.post1
 pywin32==312 ; sys_platform == 'win32'
     # via
     #   docker
+    #   mcp
     #   portalocker
+pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
+    # via keyring
 pyyaml==6.0.3
     # via
     #   apprise
+    #   jsonschema-path
     #   langchain-core
     #   prefect
     #   uvicorn
@@ -341,11 +437,13 @@ realtime==2.31.0
     # via supabase
 redis==8.1.0
     # via
+    #   fakeredis
     #   py-key-value-aio
     #   pydocket
 referencing==0.37.0
     # via
     #   jsonschema
+    #   jsonschema-path
     #   jsonschema-specifications
 regex==2026.9.10
     # via dateparser
@@ -354,6 +452,7 @@ requests==2.34.2
     #   apprise
     #   docker
     #   langsmith
+    #   mcpauth
     #   requests-oauthlib
     #   requests-toolbelt
 requests-oauthlib==2.0.0
@@ -365,6 +464,7 @@ rfc3339-validator==0.1.4
 rich==15.0.0
     # via
     #   cyclopts
+    #   fastmcp
     #   prefect
     #   pydocket
     #   rich-rst
@@ -379,6 +479,8 @@ ruamel-yaml==0.19.1
     # via prefect
 ruamel-yaml-clib==0.2.15 ; platform_python_implementation == 'CPython'
     # via prefect
+secretstorage==3.5.0 ; sys_platform == 'linux'
+    # via keyring
 semver==3.0.4
     # via prefect
 shellingham==1.5.4
@@ -393,6 +495,8 @@ sniffio==1.3.1
     #   langsmith
     #   openai
     #   prefect
+sortedcontainers==2.4.0
+    # via fakeredis
 sqlalchemy==2.0.52
     # via
     #   alembic
@@ -402,10 +506,15 @@ sqlite-vec==0.1.9
     # via langgraph-checkpoint-sqlite
 sqlmodel==0.0.47
     # via api
+sse-starlette==3.5.0
+    # via mcp
 starlette==1.4.1
     # via
     #   fastapi
+    #   mcp
+    #   mcpauth
     #   prefect
+    #   sse-starlette
 storage3==2.31.0
     # via supabase
 strenum==0.4.15
@@ -436,12 +545,14 @@ typing-extensions==4.16.0
     #   fastapi
     #   grpcio
     #   langchain-core
+    #   langchain-mcp-adapters
     #   langchain-protocol
     #   langsmith
+    #   mcp
     #   openai
     #   opentelemetry-api
     #   prefect
-    #   py-key-value-aio
+    #   py-key-value-shared
     #   pydantic
     #   pydantic-core
     #   pydantic-extra-types
@@ -453,6 +564,7 @@ typing-extensions==4.16.0
 typing-inspection==0.4.2
     # via
     #   fastapi
+    #   mcp
     #   pydantic
     #   pydantic-settings
 tzdata==2026.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
@@ -481,6 +593,8 @@ uuid-utils==0.17.1
 uvicorn==0.52.1
     # via
     #   api
+    #   fastmcp
+    #   mcp
     #   prefect
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
@@ -488,6 +602,7 @@ watchfiles==1.2.0
     # via uvicorn
 websockets==15.0.1
     # via
+    #   fastmcp
     #   langgraph-sdk
     #   langsmith
     #   prefect

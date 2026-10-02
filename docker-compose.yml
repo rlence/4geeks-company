@@ -18,6 +18,26 @@ services:
     networks:
       - brasaland-net
 
+  mcp:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+    command: ["python", "-m", "mcps.brasaland_company"]
+    ports:
+      - "8010:8010"
+    depends_on:
+      - api
+    volumes:
+      - ./mcps:/app/mcps
+      - ./services/api:/app/services/api
+    env_file:
+      - .env
+    environment:
+      COMPANY_API_URL: http://api:8000
+      MCP_PORT: "8010"
+    networks:
+      - brasaland-net
+
   qdrant:
     image: qdrant/qdrant
     ports:
@@ -48,6 +68,8 @@ services:
       - ./docs/company-knowledge-base:/app/docs/company-knowledge-base
     env_file:
       - .env
+    environment:
+      MCP_URL: http://mcp:8010/mcp
     networks:
       - brasaland-net
 
