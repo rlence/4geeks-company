@@ -3,9 +3,14 @@ from contextlib import asynccontextmanager
 import logging
 import sys
 import time
+from uuid import uuid4
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from inventory.database import close_engine
+from inventory.errors import InventoryError
+from routes.inventory import router as inventory_router
 from fastapi.middleware.cors import CORSMiddleware
 
 from routes.incidents import router as incidents_router
@@ -30,6 +35,7 @@ async def lifespan(app):
             yield
         finally:
             app.state.support_agent = None
+            close_engine()
 
 
 app = FastAPI(
@@ -53,6 +59,20 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def inventory_audit(request: Request, call_next):
+    if not request.url.path.startswith("/inventory/"):
+        return await call_next(request)
+    correlation = str(uuid4())
+    response = await call_next(request)
+    route = getattr(request.scope.get("route"), "path", "/inventory/unknown")
+    logger.info("inventory request_id=%s method=%s route=%s user=%s status=%s",
+                correlation, request.method, route,
+                getattr(request.state, "inventory_owner", "unauthenticated"), response.status_code)
+    response.headers["X-Request-Id"] = correlation
+    return response
+
+
+@app.middleware("http")
 async def timing_middleware(request: Request, call_next):
     start = time.perf_counter()
     response = await call_next(request)
@@ -71,6 +91,11 @@ app.include_router(reporting_router)
 app.include_router(knowledge_router)
 app.include_router(agent_router)
 app.include_router(incidents_router)
+app.include_router(inventory_router)
+
+@app.exception_handler(InventoryError)
+async def inventory_error(request: Request, exc: InventoryError):
+    return JSONResponse(status_code=exc.status, content={"detail": exc.message, "code": exc.code})
 
 
 @app.get("/health")

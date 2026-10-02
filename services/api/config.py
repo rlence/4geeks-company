@@ -1,8 +1,11 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+# Permite la configuración común del monorepo sin sobrescribir la del servicio.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 JWT_SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 ACCESS_TOKEN_TTL_MINUTES = int(os.environ.get("ACCESS_TOKEN_TTL_MINUTES", "1440"))
