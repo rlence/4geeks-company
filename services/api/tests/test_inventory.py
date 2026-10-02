@@ -61,6 +61,7 @@ def test_missing_database_is_honest_503(client,auth_headers,existing_user,monkey
     from inventory.database import close_engine
     close_engine()
     monkeypatch.delenv('INVENTORY_DATABASE_URL',raising=False)
+    monkeypatch.delenv('INVENTORY_ADMIN_DATABASE_URL',raising=False)
     monkeypatch.setenv('INVENTORY_PERMISSIONS',json.dumps({str(existing_user['id']):['inventory:read']}))
     response=client.get('/inventory/products',headers=auth_headers)
     assert response.status_code==503
@@ -78,3 +79,19 @@ def test_persisted_permissions_and_explicit_environment_override(monkeypatch, ex
     assert capabilities('999999') == set()
     monkeypatch.setenv('INVENTORY_PERMISSIONS', '{}')
     assert capabilities(owner) == set()
+
+
+def test_existing_connection_fallback_and_runtime_priority(monkeypatch):
+    import inventory.database as db
+    calls = []
+    monkeypatch.setattr(db, 'make_engine', lambda url, **kw: calls.append((url, kw)) or 'engine')
+    db.get_engine.cache_clear()
+    monkeypatch.delenv('INVENTORY_DATABASE_URL', raising=False)
+    monkeypatch.setenv('INVENTORY_ADMIN_DATABASE_URL', 'admin-test')
+    assert db.get_engine() == 'engine'
+    assert calls[-1] == ('admin-test', {'allow_admin': True})
+    db.get_engine.cache_clear()
+    monkeypatch.setenv('INVENTORY_DATABASE_URL', 'runtime-test')
+    assert db.get_engine() == 'engine'
+    assert calls[-1] == ('runtime-test', {})
+    db.get_engine.cache_clear()

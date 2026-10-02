@@ -107,3 +107,9 @@ Pasos manuales: iniciar sesión con operador; abrir inventario y detalle; regist
 ### Asignaciones autorizadas
 
 Felipe (ID 1), Jake (ID 2) y Ricardo (ID 3) tienen lectura y escritura de inventario en la base local, por autorización del usuario. Son asignaciones locales, no valores predeterminados de nuevos usuarios ni privilegios de Supabase. Reiniciar/resembrar TinyDB puede eliminarlas.
+
+## Actualización: conexión existente autorizada
+
+Por petición explícita del usuario, si no se configura `INVENTORY_DATABASE_URL`, la API reutiliza `INVENTORY_ADMIN_DATABASE_URL`. La conexión dedicada conserva prioridad y su validación del usuario inventory_app. Esta excepción permite ejecutar el entorno de desarrollo con su conexión existente, sin modificar contraseñas ni archivos .env. Los permisos de usuario del backend siguen activos; el acceso PostgreSQL de esta alternativa tiene privilegios administrativos. Antes de desplegar, configurar la conexión dedicada y retirar la credencial administrativa del entorno de ejecución.
+
+Semilla aplicada con el usuario local ID 3 autorizado: seis ingredientes y siete movimientos. 25 pruebas focalizadas del módulo pasan. Las notas anteriores sobre conexión y semilla pendientes describen el estado previo a esta actualización.

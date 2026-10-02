@@ -125,3 +125,5 @@ La migración canónica está en `supabase/migrations/20261002012816_inventory_a
 Validación: 195 pruebas backend/pipelines (incluidas siete sobre PostgreSQL aislado) y 16 pruebas frontend pasaron. Build correcto. Avisos heredados de test JWT, logging Prefect y coverage lint. Prueba web delegada al usuario por su preferencia; integración remota completa y reinicio de aplicación pendientes. Ver `docs/inventory/design.md`. Sin commit ni PR todavía. Las notas históricas de Hito 5 que describen backend inexistente corresponden al estado previo.
 
 Asignación posterior autorizada: usuarios locales 1, 2 y 3 con `inventory:read` y `inventory:write`, persistida en TinyDB. Configuración de entorno explícita tiene prioridad. Sigue pendiente la conexión de ejecución del rol inventory_app.
+
+Actualización de inventario: el usuario autorizó reutilizar INVENTORY_ADMIN_DATABASE_URL en desarrollo cuando no exista INVENTORY_DATABASE_URL. Fallback implementado y probado, conservando prioridad de conexión dedicada y autorización por usuario. Semilla remota aplicada con ID 3; 25 pruebas focalizadas pasan. Pendiente usar rol limitado antes del despliegue.

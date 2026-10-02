@@ -7,12 +7,12 @@ from sqlmodel import Session, create_engine
 from .errors import unavailable
 
 
-def make_engine(url: str):
+def make_engine(url: str, *, allow_admin: bool = False):
     try:
         parsed = make_url(url)
         if parsed.get_backend_name() not in ('postgresql', 'postgres'):
             raise ValueError('PostgreSQL required')
-        if not parsed.username or parsed.username.split('.')[0] != 'inventory_app':
+        if not parsed.username or (not allow_admin and parsed.username.split('.')[0] != 'inventory_app'):
             raise ValueError('Use the restricted inventory_app role')
         if parsed.host not in ('localhost', '127.0.0.1', '::1'):
             sslmode = parsed.query.get('sslmode', 'require')
@@ -30,9 +30,13 @@ def make_engine(url: str):
 @lru_cache(maxsize=1)
 def get_engine():
     url = os.environ.get('INVENTORY_DATABASE_URL')
-    if not url:
+    if url:
+        return make_engine(url)
+    # Excepción de desarrollo autorizada: reutilizar la conexión existente.
+    admin_url = os.environ.get('INVENTORY_ADMIN_DATABASE_URL')
+    if not admin_url:
         raise unavailable()
-    return make_engine(url)
+    return make_engine(admin_url, allow_admin=True)
 
 
 def close_engine():
