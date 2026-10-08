@@ -1,4 +1,5 @@
 """Ciclos del agente con proveedor de generación simulado."""
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import pytest
@@ -111,6 +112,26 @@ def test_expiry_and_deduplication(tmp_path):
                                 (stamp(now() - timedelta(seconds=1)), third))
         assert repo.pending(conv, 1) is None
         assert repo.connection.execute("SELECT status FROM proposals WHERE id=?", (third,)).fetchone()[0] == "expired"
+    finally:
+        repo.close()
+
+
+def test_only_one_pending_proposal_under_concurrency(tmp_path):
+    repo = MemoryRepository(tmp_path / "memory.sqlite")
+    try:
+        conv = repo.create_conversation(1)
+
+        def attempt(i):
+            try:
+                repo.create_proposal(1, conv, proposal(), QUESTION, f"run-{i}")
+                return "created"
+            except MemoryConflict:
+                return "conflict"
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(attempt, [1, 2]))
+        assert sorted(outcomes) == ["conflict", "created"]
+        assert repo.connection.execute("SELECT count(*) FROM proposals WHERE status='pending'").fetchone()[0] == 1
     finally:
         repo.close()
 
