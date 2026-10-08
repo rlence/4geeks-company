@@ -86,8 +86,7 @@ def retrieve(query: str, *, k: int = DEFAULT_K, min_score: float = MIN_SCORE) ->
     # Los scores se registran del lado servidor para poder depurar y afinar
     # el umbral; nunca salen al cliente (lo prohíbe la Fase 3 del rule).
     logger.info(
-        "retrieve q=%r k=%d min_score=%.2f -> %d/%d sobre el umbral (scores=%s)",
-        query[:60],
+        "retrieve k=%d min_score=%.2f -> %d/%d sobre el umbral (scores=%s)",
         k,
         min_score,
         len(payloads),

@@ -13,7 +13,7 @@ class Event(BaseModel):
     node: Literal["receive_question", "invalid_question", "retrieve_context",
                   "generate_answer", "insufficient_context", "runtime", "classify_request",
                   "lookup_incident", "answer_incident", "tool_fallback", "clarify_request",
-                  "routing_fallback", "combine_answer"]
+                  "routing_fallback", "combine_answer", "answer_from_memory", "memory_decision"]
     status: Literal["completed", "failed"]
     output: dict = Field(default_factory=dict)
     next_node: str | None = None
@@ -22,7 +22,7 @@ class Event(BaseModel):
 
 class Trace(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    schema_version: Literal[1, 2] = 2
+    schema_version: Literal[1, 2, 3] = 3
     run_id: UUID
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
