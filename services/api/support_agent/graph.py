@@ -20,6 +20,7 @@ class AgentState(TypedDict):
     tool_result: dict
     rag_failed: bool
     outcome: str
+    memory_context: list[dict]
 
 
 class StateContract(BaseModel):
@@ -32,6 +33,7 @@ class StateContract(BaseModel):
     tool_result: dict = Field(default_factory=dict)
     rag_failed: bool = False
     outcome: Literal["completed", "partial", "fallback"] = "completed"
+    memory_context: list[dict] = Field(default_factory=list)
 
 
 class NodeFailure(RuntimeError):
@@ -63,7 +65,12 @@ def retrieve_context(state):
 
 def generate_answer(state):
     try:
-        answer = rag.generate_answer(state.get("decision", {}).get("rag_question") or state["question"], state["context"])
+        question = state.get("decision", {}).get("rag_question") or state["question"]
+        if state.get("memory_context"):
+            from .memory.logic import answer_with_memory
+            answer = answer_with_memory(question, state["context"], state["memory_context"])
+        else:
+            answer = rag.generate_answer(question, state["context"])
     except Exception:
         if state.get("decision", {}).get("source") == "both":
             return {"answer": None, "rag_failed": True}
@@ -103,6 +110,8 @@ def classify_request(state):
 
 
 def route_decision(state):
+    if state.get("memory_context") and state["decision"]["source"] in {"clarify", "unavailable"}:
+        return "answer_from_memory"
     return {"rag": "retrieve_context", "incidents": "lookup_incident", "both": "lookup_incident",
             "clarify": "clarify_request", "readonly": "clarify_request",
             "unavailable": "routing_fallback"}[state["decision"]["source"]]
@@ -121,7 +130,12 @@ def route_tool(state):
 
 def answer_incident(state):
     from .tools.mcp_incidents import format_result
-    return {"answer": format_result(state["tool_result"]),
+    answer = format_result(state["tool_result"])
+    if state["tool_result"]["status"] == "ok" and state.get("memory_context"):
+        notes = "; ".join(f"{m['fact']} (aprobado por ti: {m['approved_at'][:10]})"
+                          for m in state["memory_context"])
+        answer += "\n\nContexto que aprobaste recordar, no estado oficial: " + notes
+    return {"answer": answer,
             "outcome": "completed" if state["tool_result"]["status"] == "ok" else "fallback"}
 
 
@@ -134,6 +148,14 @@ def clarify_request(state):
 
 def routing_fallback(state):
     return {"answer": "No pude determinar qué fuente consultar ahora mismo. Inténtalo de nuevo.", "outcome": "fallback"}
+
+
+def answer_from_memory(state):
+    from .memory.logic import answer_with_memory
+    answer = answer_with_memory(state["question"], [], state["memory_context"])
+    if not answer:
+        raise ValueError("Respuesta del modelo vacía")
+    return {"answer": answer}
 
 
 def route_answer(state):
@@ -166,12 +188,14 @@ def build_graph():
              "generate_answer": generate_answer, "insufficient_context": generate_answer,
              "lookup_incident": lookup_incident, "answer_incident": answer_incident,
              "tool_fallback": answer_incident, "clarify_request": clarify_request,
-             "routing_fallback": routing_fallback, "combine_answer": combine_answer}
+             "routing_fallback": routing_fallback, "combine_answer": combine_answer,
+             "answer_from_memory": answer_from_memory}
     for name, function in nodes.items():
         builder.add_node(name, guarded(name, function))
     builder.add_edge(START, "receive_question")
     destinations = {"receive_question": ["classify_request", "invalid_question"],
-        "classify_request": ["retrieve_context", "lookup_incident", "clarify_request", "routing_fallback"],
+        "classify_request": ["retrieve_context", "lookup_incident", "clarify_request", "routing_fallback",
+                             "answer_from_memory"],
         "lookup_incident": ["retrieve_context", "answer_incident", "tool_fallback"],
         "retrieve_context": ["generate_answer", "insufficient_context", "combine_answer"],
         "generate_answer": ["combine_answer", END], "insufficient_context": ["combine_answer", END]}

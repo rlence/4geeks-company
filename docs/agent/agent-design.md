@@ -1,6 +1,6 @@
-# Agente de soporte de Brasaland — Parte 1
+# Agente de soporte de Brasaland — base, MCP y memoria
 
-El endpoint `POST /agent/query` ejecuta el RAG existente como un grafo LangGraph compilado al arrancar FastAPI. `POST /knowledge/query` conserva su contrato anterior. El contenido de negocio procede de los cuatro documentos de `docs/company-knowledge-base/` y del contexto del Hito 7.
+El endpoint `POST /agent/query` ejecuta el agente LangGraph compilado al arrancar FastAPI. El grafo clasifica la petición entre RAG documental e incidencias consultadas por MCP. Para usuarios autenticados, el servicio añade memoria episódica aprobada según [memory-design.md](memory-design.md). `POST /knowledge/query` conserva su contrato anterior. Las secciones históricas de esta página documentan la base del Hito 7; el diseño de memoria detalla las extensiones actuales.
 
 ## Flujo y contratos
 
@@ -8,27 +8,33 @@ El endpoint `POST /agent/query` ejecuta el RAG existente como un grafo LangGraph
 flowchart TD
     START --> receive_question
     receive_question -->|vacía| invalid_question
-    receive_question -->|válida| retrieve_context
+    receive_question -->|válida| classify_request
+    classify_request -->|documentos| retrieve_context
+    classify_request -->|incidencias| lookup_incident
+    classify_request -->|ambas| lookup_incident
+    lookup_incident -->|ambas| retrieve_context
+    lookup_incident -->|solo incidencias| answer_incident
     retrieve_context -->|hay contexto| generate_answer
     retrieve_context -->|sin contexto| insufficient_context
     invalid_question --> END
     generate_answer --> END
     insufficient_context --> END
+    answer_incident --> END
 ```
 
-El estado contiene `question`, `context`, `answer` y `error_code`. No guarda historial conversacional. `receive_question` reutiliza la normalización; `retrieve_context` llama una vez a `rag.retrieve`; los nodos de respuesta llaman a `rag.generate_answer` con los chunks ya recuperados. El nodo `insufficient_context` pasa una lista vacía, preservando la política del RAG de generar incluso la respuesta de falta de información mediante el modelo. No hay llamadas a `rag.query()` dentro del grafo.
+El estado contiene `question`, `context`, `decision`, `tool_result`, `memory_context`, `answer` y campos de resultado/error. `receive_question` reutiliza la normalización; `retrieve_context` llama una vez a `rag.retrieve`. Sin recuerdos pertinentes, los nodos RAG llaman a `rag.generate_answer`; con recuerdos, presentan documentos y recuerdos en bloques separados al mismo modelo. El nodo `insufficient_context` pasa una lista documental vacía. No hay llamadas a `rag.query()` dentro del grafo.
 
 El constructor usa `StateGraph.compile()` y los nodos validan los contratos con Pydantic. La compilación verifica estructura, no garantiza por sí sola la validez de cualquier dato de ejecución. Las excepciones de proveedor no se copian en los artefactos públicos ni en las trazas.
 
-La API acepta `{ "question": "..." }` y devuelve únicamente `{ "answer": "..." }`, con `X-Agent-Run-Id` para correlación. Una pregunta vacía termina en 422; un fallo de recuperación, generación o persistencia devuelve 503. Los esquemas rechazan preguntas que no sean strings o excedan 1000 caracteres. El flujo actual es síncrono y FastAPI lo ejecuta en su pool de threads.
+La API acepta `{ "question": "...", "conversation_id": null }`. Para consultas anónimas devuelve `{ "answer": "..." }`; para usuarios autenticados devuelve también un `conversation_id` UUID que debe reenviarse en el siguiente turno. `X-Agent-Run-Id` correlaciona cada petición. Una pregunta vacía termina en 422; un fallo de recuperación, generación o persistencia devuelve 503. Los esquemas rechazan preguntas que no sean strings o excedan 1000 caracteres. El flujo es síncrono y FastAPI lo ejecuta en su pool de threads.
 
 ## Persistencia y trazas
 
-La API abre un `SqliteSaver` en su ciclo de vida y cierra la conexión al parar. Cada consulta recibe un UUID como `thread_id`. La conexión permite acceso desde los threads de FastAPI; el saver coordina las operaciones. Se usan checkpoints síncronos en cada superpaso y SQLite WAL. Esta configuración está pensada para desarrollo local; no pretende resolver despliegues distribuidos.
+La API abre un `SqliteSaver` en su ciclo de vida y cierra la conexión al parar. Una consulta anónima recibe un UUID nuevo como `thread_id`; las autenticadas reutilizan el `conversation_id` validado. Las preguntas autenticadas que coinciden con el filtro de datos excluidos se ejecutan sin checkpoint. La conexión permite acceso desde los threads de FastAPI; el saver coordina las operaciones. Se usan checkpoints síncronos y SQLite WAL. Esta configuración está pensada para desarrollo local; no resuelve despliegues distribuidos.
 
-El directorio por defecto es `services/api/.agent-runtime/`; se puede cambiar con `AGENT_RUNTIME_DIR`. Contiene `checkpoints.sqlite` y `traces/<run_id>.json`. Ambos están excluidos de Git y del contexto Docker. Con el bind mount actual de Compose persisten en el directorio del host; en un despliegue sin ese montaje debe montarse un volumen persistente.
+El directorio por defecto es `services/api/.agent-runtime/`; se puede cambiar con `AGENT_RUNTIME_DIR`. Contiene `checkpoints.sqlite`, `memory.sqlite` y `traces/<run_id>.json`. Están excluidos de Git y del contexto Docker. Con el bind mount actual de Compose persisten en el directorio del host; en un despliegue sin ese montaje debe montarse un volumen persistente.
 
-Cada traza incluye entradas y salidas observables de los nodos, orden, ruta elegida, pregunta, respuesta, estado final y procedencia (commit, cambios locales, hashes de fuentes/corpus/lockfile, modelos y parámetros de retrieval). No registra razonamiento interno del modelo. Los eventos son actualizaciones de estado: la entrada de un nodo se reconstruye aplicando las salidas anteriores. Un error identifica el nodo y un código estable, sin copiar la excepción del proveedor.
+Las trazas anónimas conservan las entradas y salidas observables de los nodos para las evaluaciones heredadas. Las trazas autenticadas registran la ruta, el estado y la procedencia sin pregunta, respuesta ni salidas crudas; las decisiones y hechos autorizados se auditan en `memory.sqlite`. No se registra razonamiento interno del modelo. Un error identifica el nodo y un código estable, sin copiar la excepción del proveedor.
 
 La escritura usa un archivo temporal y reemplazo atómico por corrida. Si no se puede persistir, la consulta falla: no se afirma que existe una traza si el disco no permite guardarla. Una interrupción abrupta puede dejar una traza `running`; los evals la rechazan. Los checkpoints conservan los pasos guardados antes de la interrupción. No se expone una API pública para leer o reanudar corridas.
 
