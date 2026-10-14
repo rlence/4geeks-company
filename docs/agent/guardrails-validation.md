@@ -37,3 +37,5 @@ El workflow `.github/workflows/agent-guardrails.yml` ejecuta las pruebas determi
 ## Pendientes y límites
 
 No se ha ejecutado un smoke con proveedor vivo ni evaluación humana amplia de paráfrasis. Inventario MCP sigue sin adaptador en este agente, y las sesiones anónimas carecen de continuidad. Los filtros no son una garantía universal anti-jailbreak. No se modificaron `.env`, `CONTEXT.md`, frontends ni paquetes protegidos.
+
+Publicación: implementación guardada en `fa4726a`. El push fue rechazado por revisión automática por falta de autorización explícita para el destino GitHub `rlence/4geeks-company`. No hay PR ni ejecución remota de CI de esta rama todavía.
