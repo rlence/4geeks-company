@@ -12,6 +12,7 @@ recuperado. En ningún camino se devuelve texto crudo de la base vectorial
 modelo, que responde que no tiene información suficiente.
 """
 
+import json
 import logging
 import os
 import sys
@@ -103,7 +104,7 @@ def _format_context(context: list[dict]) -> str:
     )
 
 
-def generate_answer(question: str, context: list[dict]) -> str:
+def generate_answer(question: str, context: list[dict], *, system_prompt=None) -> str:
     """Arma el prompt con el contexto recuperado y llama al LLM de generación.
 
     Usa GENERATION_MODEL, nunca EMBEDDING_MODEL. Se llama incluso con
@@ -119,10 +120,12 @@ def generate_answer(question: str, context: list[dict]) -> str:
         f"PREGUNTA DEL GERENTE: {question}"
     )
 
+    if system_prompt is not None:
+        user_prompt = json.dumps({"untrusted_documents": context, "question": question}, ensure_ascii=False)
     response = _openai().chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
         temperature=0,

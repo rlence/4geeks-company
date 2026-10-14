@@ -6,6 +6,47 @@ from datetime import datetime, timezone
 import json
 import os
 from uuid import uuid4
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from ..guardrails.events import record
+
+class SafeIncident(BaseModel):
+    model_config = ConfigDict(extra="ignore", strict=True)
+    id: int = Field(gt=0, le=9007199254740991)
+    status: Literal["open", "in_progress", "resolved"]
+    category: Literal["operations", "technical", "other"]
+    origin: Literal["api", "backoffice"] = "api"
+    updated_at: str
+    resolved_at: str | None = None
+
+    @field_validator("updated_at", "resolved_at")
+    @classmethod
+    def valid_date(cls, value):
+        if value is not None:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                raise ValueError("Timezone required")
+        return value
+
+
+def validate_result(result):
+    try:
+        if not isinstance(result, dict):
+            raise ValueError("Invalid result")
+        if result.get("status") != "ok":
+            if result.get("status") not in {"unauthorized", "not_found", "timeout", "unavailable", "invalid_response"}:
+                raise ValueError("Invalid status")
+            return {"status": result["status"], "items": []}
+        items = result["items"]
+        total = result.get("total", len(items))
+        if not isinstance(items, list) or len(items) > 10 or type(total) is not int or total < len(items):
+            raise ValueError("Invalid collection")
+        return {"status": "ok", "items": [SafeIncident.model_validate(x).model_dump() for x in items],
+                "total": total}
+    except (ValueError, TypeError, KeyError):
+        record("external_mcp", "structural", "block", "invalid_tool_result")
+        return {"status": "invalid_response", "items": []}
+
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
@@ -66,6 +107,7 @@ async def read_incidents(decision, access_token):
                 raw = await invoke_tool("get_incident", {"incident_id": decision.ticket_id}, access_token)
                 item = _normalize(raw)
                 if not item:
+                    record("external_mcp", "structural", "block", "invalid_tool_result")
                     return {"status": "invalid_response", "items": []}
                 items, total = [item], 1
             else:
@@ -76,16 +118,12 @@ async def read_incidents(decision, access_token):
                     arguments["category"] = decision.category
                 result = _normalize(await invoke_tool("list_incidents", arguments, access_token))
                 if not result or not isinstance(result.get("items"), list):
+                    record("external_mcp", "structural", "block", "invalid_tool_result")
                     return {"status": "invalid_response", "items": []}
                 items, total = result["items"], result.get("total", len(result["items"]))
             fields = {"id", "status", "category", "origin", "updated_at", "resolved_at"}
             safe_items = [{key: value for key, value in item.items() if key in fields} for item in items]
-            return {
-                "status": "ok",
-                "items": safe_items,
-                "total": total,
-                "queried_at": datetime.now(timezone.utc).isoformat(),
-            }
+            return validate_result({"status": "ok", "items": safe_items, "total": total})
     except (TimeoutError, asyncio.TimeoutError):
         return {"status": "timeout", "items": []}
     except Exception as exc:
@@ -102,6 +140,7 @@ def lookup(decision):
 
 
 def format_result(result):
+    result = validate_result(result)
     if result["status"] != "ok":
         return {
             "not_found": "No encontré ese ticket entre tus incidencias accesibles.",

@@ -17,6 +17,11 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from .graph import ROOT, NodeFailure, StateContract, build_graph, rag, next_node
 from .memory.repository import MemoryConflict, MemoryRepository
 from .traces import Event, Trace, save_trace
+from .guardrails.events import current_events, current_run, record
+from .guardrails.input import check_input, response_for
+from .guardrails.external import safe_records
+from .guardrails.output import check_output
+from .guardrails.policy import unsafe_reason
 
 logger = logging.getLogger(__name__)
 DEFAULT_RUNTIME = Path(__file__).resolve().parents[1] / ".agent-runtime"
@@ -59,6 +64,87 @@ class AgentService:
         self.conversation_lock = RLock()
 
     def query(self, question, *, access_token=None):
+        answer, run_id, _ = self._guarded_query(question, access_token=access_token)
+        return answer, run_id
+
+    def query_with_memory(self, question, *, owner_id, conversation_id=None, access_token=None):
+        return self._guarded_query(question, owner_id=owner_id, conversation_id=conversation_id,
+                                   access_token=access_token)
+
+    def _guarded_query(self, question, *, owner_id=None, conversation_id=None, access_token=None):
+        # Validate before logging/persisting anything; never accept arbitrary roles or types.
+        StateContract(question=question)
+        run_id = str(uuid4())
+        events = []
+        event_token = current_events.set(events)
+        run_token = current_run.set(run_id)
+        try:
+            with self.conversation_lock:
+                pending = None
+                sensitive_topic = False
+                if owner_id is not None:
+                    if self.memory is None:
+                        raise RuntimeError("Almacén de memoria no disponible")
+                    if conversation_id is None:
+                        conversation_id = self.memory.create_conversation(owner_id)
+                    self.memory.assert_owner(conversation_id, owner_id)
+                    pending = self.memory.pending(conversation_id, owner_id)
+                    sensitive_topic = self.memory.security_topic(conversation_id, owner_id)
+                if not question.strip():
+                    return (*self._query_without_memory(question, access_token=access_token), conversation_id)
+                decision = check_input(question, sensitive_topic=sensitive_topic, pending=bool(pending))
+                if decision.decision != "allow_domain":
+                    action = "block" if decision.decision.startswith("reject") else "redirect"
+                    record(decision.guardrail_id, decision.failure_type, action, decision.reason_code)
+                    if owner_id is not None:
+                        if decision.decision in {"reject_security", "reject_sensitive"}:
+                            self.memory.mark_sensitive(conversation_id, owner_id)
+                        if pending:
+                            self.memory.resolve_proposal(owner_id, conversation_id, "discard", "guardrail_block")
+                    answer = response_for(decision, question)
+                else:
+                    if pending and unsafe_reason(pending["fact"]):
+                        record("memory", "security", "block", "unsafe_pending")
+                        self.memory.resolve_proposal(owner_id, conversation_id, "discard", "guardrail_block")
+                    if owner_id is None:
+                        answer, _ = self._query_without_memory(question, access_token=access_token)
+                    else:
+                        answer, _, _ = self._query_with_memory(
+                            question, owner_id=owner_id, conversation_id=conversation_id, access_token=access_token)
+                    answer = check_output(answer)
+                path = self.trace_dir / f"{run_id}.json"
+                trace = (Trace.model_validate_json(path.read_text()) if path.exists() else
+                         Trace(run_id=run_id, question="[redacted]", provenance=self.provenance,
+                               status="completed", finished_at=datetime.now(timezone.utc),
+                               events=[Event(node="guardrails", status="completed")]))
+                trace.guardrails = events
+                trace.question, trace.answer = "[redacted]", None
+                save_trace(self.trace_dir, trace)
+                return answer, run_id, conversation_id
+        except MemoryConflict:
+            raise
+        except Exception as exc:
+            trace = Trace(run_id=run_id, question="[redacted]", provenance=self.provenance,
+                          status="invalid_question" if isinstance(exc, AgentError) and exc.code == "invalid_question" else "failed",
+                          error_code=exc.code if isinstance(exc, AgentError) else "agent_unavailable",
+                          finished_at=datetime.now(timezone.utc), guardrails=events,
+                          events=[Event(node="guardrails", status="failed", error_code="agent_unavailable")])
+            path = self.trace_dir / f"{run_id}.json"
+            try:
+                if path.exists():
+                    trace = Trace.model_validate_json(path.read_text())
+                    trace.guardrails = events
+                save_trace(self.trace_dir, trace)
+            except Exception:
+                logger.error("agent trace persistence failed run_id=%s", run_id)
+            if isinstance(exc, AgentError):
+                raise
+            raise AgentError("agent_unavailable", run_id) from exc
+        finally:
+            current_events.reset(event_token)
+            current_run.reset(run_token)
+
+    def _query_without_memory(self, question, *, access_token=None):
         from .tools.mcp_incidents import current_access_token
         token = current_access_token.set(access_token)
         try:
@@ -70,9 +156,9 @@ class AgentService:
         answer, run_id, _ = self._run(question)
         return answer, run_id
 
-    def _run(self, question, *, thread_id=None, memories=None, private_trace=False, stateless=False):
-        state = StateContract(question=question, memory_context=memories or []).model_dump()
-        run_id = str(uuid4())
+    def _run(self, question, *, thread_id=None, memories=None, private_trace=True, stateless=False):
+        state = StateContract(question=question, memory_context=safe_records(memories or [], memory=True)).model_dump()
+        run_id = current_run.get() or str(uuid4())
         trace = Trace(run_id=run_id, question="[redacted]" if private_trace else question,
                       provenance=self.provenance)
         config = {"configurable": {"thread_id": thread_id or run_id}}
@@ -111,14 +197,14 @@ class AgentService:
         return state["answer"], run_id, state
 
     def _decision_trace(self, status):
-        run_id = str(uuid4())
+        run_id = current_run.get() or str(uuid4())
         trace = Trace(run_id=run_id, question="[redacted]", provenance=self.provenance,
                       status="completed", finished_at=datetime.now(timezone.utc),
                       events=[Event(node="memory_decision", status="completed", output={"decision": status})])
         save_trace(self.trace_dir, trace)
         return run_id
 
-    def query_with_memory(self, question, *, owner_id, conversation_id=None, access_token=None):
+    def _query_with_memory(self, question, *, owner_id, conversation_id=None, access_token=None):
         """Un turno autenticado: resuelve pendiente, ejecuta grafo y evalúa novedad."""
         from .memory import logic
         from .memory.policy import FORBIDDEN
@@ -188,6 +274,10 @@ class AgentService:
                             remaining = ""
                         if not remaining:
                             return acknowledgement, self._decision_trace(decision.intent), conversation_id
+                        remaining_decision = check_input(remaining, sensitive_topic=self.memory.security_topic(conversation_id, owner_id))
+                        if remaining_decision.decision != "allow_domain":
+                            record("input", remaining_decision.failure_type, "block", remaining_decision.reason_code)
+                            return response_for(remaining_decision, remaining), self._decision_trace("blocked"), conversation_id
                         question = remaining
                     elif (decision is None or decision.intent == "ambiguous" or decision.confidence < 0.8
                           or (decision.intent == "approve" and not decision.explicit_approval)):
@@ -195,22 +285,24 @@ class AgentService:
 
                 location = re.search(r"\b(?:local|location|sede)\s*#?\s*(\d{1,2})\b", question, re.I)
                 location_id = int(location.group(1)) if location and 1 <= int(location.group(1)) <= 14 else None
-                memories = self.memory.read_relevant(owner_id, location_id, question)
+                memories = safe_records(self.memory.read_relevant(owner_id, location_id, question), memory=True)
                 sensitive = bool(FORBIDDEN.search(question))
                 answer, run_id, state = self._run(question, thread_id=conversation_id,
                                                   memories=[] if sensitive else memories,
                                                   private_trace=True, stateless=sensitive)
                 if acknowledgement:
                     answer = acknowledgement + "\n\n" + answer
-                if state["outcome"] == "completed" and not state["error_code"] and not sensitive:
+                if state["outcome"] == "completed" and not state["error_code"] and not sensitive and not current_events.get():
                     try:
                         candidate = logic.evaluate(question, answer, context=state["context"])
                         if candidate:
-                            self.memory.create_proposal(owner_id, conversation_id, candidate, question, run_id)
                             suffix = (f"Would you like me to remember this for next time: ‘{candidate.fact}’?"
                                       if candidate.language == "en" else
                                       f"¿Quieres que recuerde esto para la próxima vez: «{candidate.fact}»?")
-                            answer += "\n\n" + suffix
+                            composed = answer + "\n\n" + suffix
+                            if check_output(composed) == composed:
+                                self.memory.create_proposal(owner_id, conversation_id, candidate, question, run_id)
+                                answer = composed
                     except (ValueError, MemoryConflict):
                         pass
                     except Exception:

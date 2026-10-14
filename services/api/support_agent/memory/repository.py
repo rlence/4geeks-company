@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 from threading import RLock
 from uuid import uuid4
 
-from .policy import LIFETIME, MemoryProposal, validate_edited_fact
+from .policy import LIFETIME, MemoryProposal, validate_edited_fact, validate_proposal
+from ..guardrails.policy import require_safe_memory
 
 PENDING_TTL = timedelta(hours=24)
 MAX_ACTIVE = 100
@@ -76,7 +77,29 @@ class MemoryRepository:
         columns = {row[1] for row in self.connection.execute("PRAGMA table_info(proposals)")}
         if "language" not in columns:
             self.connection.execute("ALTER TABLE proposals ADD COLUMN language TEXT NOT NULL DEFAULT 'es'")
-        self.connection.execute("UPDATE schema_version SET version=2")
+        self.connection.executescript("""
+            CREATE TABLE IF NOT EXISTS security_context (
+                conversation_id TEXT PRIMARY KEY REFERENCES conversations(id),
+                owner_id INTEGER NOT NULL, topic TEXT NOT NULL,
+                attempts INTEGER NOT NULL, updated_at TEXT NOT NULL
+            );
+        """)
+        self.connection.execute("UPDATE schema_version SET version=3")
+
+    def security_topic(self, conversation_id, owner_id):
+        self.assert_owner(conversation_id, owner_id)
+        with self.lock:
+            self.connection.execute("DELETE FROM security_context WHERE updated_at<=?",
+                                    (stamp(now() - timedelta(hours=24)),))
+            return self._one("SELECT topic FROM security_context WHERE conversation_id=? AND owner_id=?",
+                             (conversation_id, owner_id)) is not None
+
+    def mark_sensitive(self, conversation_id, owner_id):
+        self.assert_owner(conversation_id, owner_id)
+        with self._transaction():
+            self.connection.execute("""INSERT INTO security_context VALUES (?,?,'sensitive',1,?)
+                ON CONFLICT(conversation_id) DO UPDATE SET attempts=attempts+1, updated_at=excluded.updated_at""",
+                (conversation_id, owner_id, stamp(now())))
 
     def close(self):
         with self.lock:
@@ -160,6 +183,7 @@ class MemoryRepository:
     def create_proposal(self, owner_id, conversation_id, candidate: MemoryProposal, question, run_id):
         self.assert_owner(conversation_id, owner_id)
         self.expire_pending(conversation_id)
+        candidate = validate_proposal(MemoryProposal.model_validate(candidate.model_dump()), question)
         identifier = str(uuid4())
         created = now()
         with self._transaction():
@@ -212,6 +236,10 @@ class MemoryRepository:
             final_fact = self._validated_edit(proposal, edited_fact) if edited_fact else proposal["fact"]
             status = {"approve": "approved", "reject": "rejected", "discard": "discarded"}[action]
             if action == "approve":
+                require_safe_memory(message)
+                validate_edited_fact(final_fact)
+                for key in ("source_quote", "reason", "subject_key"):
+                    require_safe_memory(proposal[key])
                 active_count = self.connection.execute(
                     "SELECT count(*) FROM memories WHERE owner_id=? AND status='active'", (owner_id,)
                 ).fetchone()[0]
@@ -250,6 +278,7 @@ class MemoryRepository:
 
     def revise_pending(self, owner_id, conversation_id, edited_fact, message):
         self.assert_owner(conversation_id, owner_id)
+        require_safe_memory(message)
         with self._transaction():
             proposal = self._one(
                 "SELECT * FROM proposals WHERE owner_id=? AND conversation_id=? AND status='pending'",

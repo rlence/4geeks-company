@@ -9,6 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "data" / "pipelines"))
 import rag  # noqa: E402
+from .prompts import MANAGER_POLICY
+from .guardrails.external import safe_records
+from .guardrails.output import check_output
 
 
 class AgentState(TypedDict):
@@ -57,10 +60,7 @@ def retrieve_context(state):
         if state.get("decision", {}).get("source") == "both":
             return {"context": [], "rag_failed": True}
         raise
-    StateContract(question=state["question"], context=context)
-    if any(not isinstance(chunk.get("text"), str) for chunk in context):
-        raise ValueError("Payload sin texto")
-    return {"context": context}
+    return {"context": safe_records(context)}
 
 
 def generate_answer(state):
@@ -70,7 +70,7 @@ def generate_answer(state):
             from .memory.logic import answer_with_memory
             answer = answer_with_memory(question, state["context"], state["memory_context"])
         else:
-            answer = rag.generate_answer(question, state["context"])
+            answer = rag.generate_answer(question, state["context"], system_prompt=MANAGER_POLICY + "\n" + rag.SYSTEM_PROMPT)
     except Exception:
         if state.get("decision", {}).get("source") == "both":
             return {"answer": None, "rag_failed": True}
@@ -96,7 +96,10 @@ def guarded(name, function):
     def run(state):
         try:
             StateContract.model_validate(state)
-            return function(state)
+            output = function(state)
+            if output.get("answer") is not None:
+                output["answer"] = check_output(output["answer"])
+            return output
         except Exception as exc:
             raise NodeFailure(name) from exc
     return run
@@ -106,6 +109,14 @@ def classify_request(state):
     from . import routing
     from .contracts import Decision
     decision = Decision.model_validate(routing.classify(state["question"]))
+    from .guardrails.policy import unsafe_reason
+    from .guardrails.events import record
+    if decision.source == "rag":
+        decision.rag_question = state["question"]
+    elif decision.rag_question and (unsafe_reason(decision.rag_question) or
+            decision.rag_question.casefold() not in state["question"].casefold()):
+        record("routing", "security", "block", "untrusted_rewrite")
+        decision = Decision(source="unavailable")
     return {"decision": decision.model_dump()}
 
 
@@ -119,8 +130,8 @@ def route_decision(state):
 
 def lookup_incident(state):
     from .contracts import Decision
-    from .tools.mcp_incidents import lookup
-    return {"tool_result": lookup(Decision.model_validate(state["decision"]))}
+    from .tools.mcp_incidents import lookup, validate_result
+    return {"tool_result": validate_result(lookup(Decision.model_validate(state["decision"])))}
 
 
 def route_tool(state):

@@ -3,6 +3,8 @@ import re
 from datetime import timedelta
 from typing import Literal
 
+from ..guardrails.policy import require_safe_memory
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Category = Literal[
@@ -45,6 +47,8 @@ class MemoryProposal(BaseModel):
 
     @model_validator(mode="after")
     def valid_scope(self):
+        for value in (self.fact, self.source_quote, self.reason, self.subject_key):
+            require_safe_memory(value)
         if self.category == "communication_preference" and self.location_id is not None:
             raise ValueError("La preferencia de comunicación es personal")
         if self.category != "communication_preference" and self.location_id is None:
@@ -56,6 +60,7 @@ class MemoryProposal(BaseModel):
 
 
 def validate_proposal(candidate: MemoryProposal, question: str) -> MemoryProposal:
+    require_safe_memory(question)
     if FORBIDDEN.search(question):
         raise ValueError("La pregunta contiene datos excluidos")
     if candidate.source_quote.casefold() not in question.casefold():
@@ -68,6 +73,7 @@ def validate_proposal(candidate: MemoryProposal, question: str) -> MemoryProposa
 
 
 def validate_edited_fact(fact: str) -> str:
+    require_safe_memory(fact)
     fact = " ".join(fact.split())
     if not 12 <= len(fact) <= 400 or FORBIDDEN.search(fact):
         raise ValueError("Edición no memorizable")
