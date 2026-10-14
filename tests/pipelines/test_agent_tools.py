@@ -18,13 +18,13 @@ def sources(monkeypatch):
         return ROW
     monkeypatch.setattr(mcp_incidents,'invoke_tool',invoke)
     monkeypatch.setattr(rag,'retrieve',lambda q:[{'text':'Oro: 50 puntos','source_document':'loyalty-program'}])
-    monkeypatch.setattr(rag,'generate_answer',lambda q,c:'Oro: 50 puntos.')
+    monkeypatch.setattr(rag,'generate_answer',lambda q,c, **kwargs:'Oro: 50 puntos.')
     return seen
 
 def run_case(tmp_path,monkeypatch,decision,access_token='token-7'):
     monkeypatch.setattr(routing,'classify',lambda q:decision)
     with open_service(tmp_path,mode='mock') as service:
-        answer,run=service.query('Pregunta',access_token=access_token)
+        answer,run=service.query('Ticket 482 y Oro?',access_token=access_token)
     return answer,load_trace(tmp_path/'traces'/f'{run}.json')
 
 def test_tool_only_never_retrieves(tmp_path,monkeypatch,sources):
@@ -59,10 +59,10 @@ def test_mixed_sources_and_partial_results(tmp_path,monkeypatch,sources,failure)
     assert ('50' in answer)==(failure!='rag')
 
 def test_identity_is_request_scoped_under_concurrency(tmp_path,monkeypatch,sources):
-    monkeypatch.setattr(routing,'classify',lambda q:Decision(source='incidents',ticket_id=int(q)))
+    monkeypatch.setattr(routing,'classify',lambda q:Decision(source='incidents',ticket_id=int(q.split()[-1])))
     with open_service(tmp_path,mode='mock') as service:
         with ThreadPoolExecutor(max_workers=4) as pool:
-            results=list(pool.map(lambda i:service.query(str(i),access_token=f'token-{i}'),range(1,9)))
+            results=list(pool.map(lambda i:service.query(f"Ticket {i}",access_token=f'token-{i}'),range(1,9)))
     assert sorted(sources)==[(f'token-{i}',i) for i in range(1,9)]
     assert mcp_incidents.current_access_token.get() is None
     assert len({run for _,run in results})==8

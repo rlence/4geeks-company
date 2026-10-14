@@ -28,7 +28,7 @@ def simulated(monkeypatch):
     from support_agent.memory import logic
     monkeypatch.setattr(routing, "classify", lambda q: Decision(source="rag", rag_question=q))
     monkeypatch.setattr(rag, "retrieve", lambda q: [])
-    monkeypatch.setattr(rag, "generate_answer", lambda q, c: "Entendido; verificaré el horario oficial.")
+    monkeypatch.setattr(rag, "generate_answer", lambda q, c, **kwargs: "Entendido; verificaré el horario oficial.")
     monkeypatch.setattr(logic, "evaluate", lambda q, a, context=None: proposal() if q == QUESTION else None)
     monkeypatch.setattr(logic, "answer_with_memory", lambda q, c, m: f"Recuerdo aprobado: {m[0]['fact']}")
     return logic
@@ -251,7 +251,7 @@ def test_approve_and_continue_incident_query(tmp_path, simulated, monkeypatch):
         monkeypatch.setattr(routing, "classify", lambda q: Decision(source="incidents", ticket_id=482))
         monkeypatch.setattr(mcp_incidents, "lookup", lambda d: {
             "status": "ok", "items": [{"id": 482, "status": "resolved",
-            "category": "operations", "updated_at": "2026-10-08"}], "total": 1,
+            "category": "operations", "updated_at": "2026-10-08T10:00:00Z"}], "total": 1,
         })
         answer, _, _ = service.query_with_memory("Sí, y además ¿qué pasó con el ticket 482?",
                                                 owner_id=1, conversation_id=conversation)

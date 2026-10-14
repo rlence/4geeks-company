@@ -118,3 +118,8 @@ Referencias técnicas: [Graph API](https://docs.langchain.com/oss/python/langgra
 La clave `LLM_API_KEY` ya está configurada y la aplicación la carga. La llamada real a embeddings responde HTTP 429 con `type=insufficient_quota` y `code=credit_balance_exhausted`. La validación real sigue pendiente de crédito del proveedor o acceso alternativo de la academia. No se cambiaron los modelos ni el umbral de recuperación.
 
 Docker y Qdrant ya están arrancados y Qdrant responde en el puerto 6333. La colección `brasaland_knowledge` todavía no existe: cuando haya crédito, ejecutar la indexación del RAG antes de capturar las corridas del agente.
+
+
+## Hito 8, parte 2 — Protección del agente
+
+`POST /agent/query` incorpora controles de entrada, fuentes externas, salida y memoria. Los rechazos mantienen HTTP 200 y la cabecera de corrida; las trazas v4 omiten contenido crudo y registran eventos de guardrail. El estado de seguridad persiste entre turnos autenticados para detectar extracción gradual. Ver [diseño, compatibilidad y límites](guardrails-design.md) y la evidencia de validación enlazada desde esa carpeta.

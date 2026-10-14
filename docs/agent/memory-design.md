@@ -51,3 +51,8 @@ services/api/.venv/bin/python -m pytest services/api/tests/test_agent_memory.py 
 El 8 de octubre de 2026 se ejecutó además un ciclo temporal con el gateway real configurado: el clasificador de fuente y la recuperación RAG se fijaron a respuestas simuladas para aislar la memoria, mientras la autoevaluación, la clasificación del «sí» y la respuesta que usa el recuerdo llamaron al modelo real. La secuencia observada fue `proposed=True`, `approved=1`, `used_memory=True`; la respuesta posterior atribuyó el miércoles a un recuerdo aprobado por el usuario y aclaró que no había documento oficial. La base SQLite de esa prueba se creó en un directorio temporal y se eliminó al terminar. Esta evidencia verifica el contrato del modelo en ese caso, no la precisión de todas sus propuestas ni un flujo completo de proveedores reales.
 
 Siguen pendientes la revisión humana de propuestas en español e inglés y una demostración estable con el RAG y el clasificador de fuentes reales. No se debe presentar la evidencia simulada como captura de una llamada real.
+
+
+## Hito 8, parte 2 — Protección del agente
+
+`POST /agent/query` incorpora controles de entrada, fuentes externas, salida y memoria. Los rechazos mantienen HTTP 200 y la cabecera de corrida; las trazas v4 omiten contenido crudo y registran eventos de guardrail. El estado de seguridad persiste entre turnos autenticados para detectar extracción gradual. Ver [diseño, compatibilidad y límites](guardrails-design.md) y la evidencia de validación enlazada desde esa carpeta.

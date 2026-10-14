@@ -90,3 +90,8 @@ seed.py           # SUPPLIERS_SEED + USERS_SEED, siembra idempotente
 - Requiere el schema `reporting` creado (`data/pipelines/sql/reporting_schema.sql`) **y** agregado a Project Settings → API → Exposed schemas en Supabase — PostgREST no sirve schemas fuera de `public` por defecto.
 - `country` viaja en `inbound_order_created`/`outbound_order_created`/`stock_waste_registered`/`stock_threshold_triggered` desde `Ingredient.country` (ya existía en el frontend). `unit_cost` es un input real y requerido en `InboundOrderForm` y en `OutboundOrderForm` cuando el motivo es `waste` — sin él no se puede calcular `total_purchase_cost`/`total_waste_cost`.
 - El pipeline no toca `services/telemetry/analysis.py` ni `GET /telemetry/report` — lee `telemetry_events` en modo solo lectura.
+
+
+## Hito 8, parte 2 — Protección del agente
+
+`POST /agent/query` incorpora controles de entrada, fuentes externas, salida y memoria. Los rechazos mantienen HTTP 200 y la cabecera de corrida; las trazas v4 omiten contenido crudo y registran eventos de guardrail. El estado de seguridad persiste entre turnos autenticados para detectar extracción gradual. Ver [diseño, compatibilidad y límites](../../docs/agent/guardrails-design.md) y la evidencia de validación enlazada desde esa carpeta.

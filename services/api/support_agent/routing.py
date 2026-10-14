@@ -3,6 +3,7 @@ import os
 import re
 from .contracts import Decision
 from .graph import rag
+from .prompts import MANAGER_POLICY
 
 PROMPT = '''Clasifica la pregunta de Brasaland. Devuelve SOLO JSON con las claves
 source, ticket_id, status, category, rag_question. source es rag (políticas/manuales),
@@ -28,7 +29,7 @@ def classify(question):
         client = rag._openai().with_options(timeout=10.0, max_retries=0)
         result = client.chat.completions.create(model=model, temperature=0,
             response_format={'type': 'json_object'},
-            messages=[{'role': 'system', 'content': PROMPT}, {'role': 'user', 'content': question}])
+            messages=[{'role': 'system', 'content': MANAGER_POLICY + '\n' + PROMPT}, {'role': 'user', 'content': question}])
         decision = Decision.model_validate_json(result.choices[0].message.content or '')
         if decision.ticket_id and str(decision.ticket_id) not in re.findall(r'\d+', question):
             return Decision(source='clarify')

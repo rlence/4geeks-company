@@ -143,3 +143,12 @@ Validación: 30 pruebas focalizadas de MCP, OAuth y migración del agente; 62 pr
 Rama limpia para PR: `feature/agent-memory-pr`. El mismo agente de soporte conserva el grafo RAG/MCP y añade memoria episódica en `.agent-runtime/memory.sqlite`, aislada por `user.doc_id` y local explícito. La API devuelve un `conversation_id` autenticado, resuelve una propuesta pendiente antes de la siguiente consulta y solo escribe recuerdos tras clasificación de consentimiento explícito. Propuestas, decisiones y sustituciones se auditan en SQLite. Hay límites de capacidad, caducidad y descarte por ambigüedad. Las trazas autenticadas omiten el contenido de los turnos. Diseño y límites en `docs/agent/memory-design.md`.
 
 Las pruebas de aprobación, rechazo, edición, cambio de tema, caducidad, aislamiento, concurrencia y rollback usan modelo simulado. Hubo además una prueba temporal con el gateway real para autoevaluación, clasificación de confirmación y respuesta desde un recuerdo; fuente y recuperación se fijaron a mocks: propuesta creada, aprobación persistida y recuerdo usado. Pendiente revisión humana del modelo en más casos y PR. El commit concurrente de `docker-compose.yml` no pertenece a esta rama para PR y permanece en `feature/agent-memory`.
+
+
+## Hito 8, Parte 2 — Aseguramiento de agentes (14-10-2026)
+
+Implementado en `feature/agent-guardrails`, sobre `main` con Parte 1 integrada (`38e48c9`). El mismo `manager_support` añade política central, guardrails de entrada/alcance, RAG/MCP/memoria aislados, validación de salida antes de checkpoint y finalización, revalidación de escrituras de memoria, estado SQLite por conversación para extracción gradual, trazas v4 sin contenido crudo y resumen CLI. Workflow de CI determinista añadido; inventario en vivo sigue sin adaptador en el agente y se comunica esa limitación.
+
+Validación local: baseline 70 pruebas; suite final 138 pruebas pasadas, sdist/wheel compilados y comprobación HTTP 200 de rechazo en Swagger con runtime temporal. Cuatro casos obligatorios documentados en `docs/agent/guardrails-evidence.json` (seis turnos, cero memorias activas/propuestas); evidencia sintética sin LLM vivo. Diseño y límites en `docs/agent/guardrails-design.md`; detalle en `guardrails-validation.md`.
+
+Pendientes de cierre externo: publicar PR y ejecutar workflow remoto. Smoke con proveedor real y evaluación humana amplia siguen pendientes; no se afirma protección universal frente a jailbreaks, continuidad anónima ni coordinación entre réplicas. No se alteraron secretos, CONTEXT ni frontends.

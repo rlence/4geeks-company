@@ -16,7 +16,7 @@ def providers(monkeypatch):
     chunks = [{"text": "Oro (50+ puntos): 15%", "source_document": "loyalty-program"}]
     calls = []
     monkeypatch.setattr(rag, "retrieve", lambda q: calls.append(("retrieve", q)) or chunks)
-    monkeypatch.setattr(rag, "generate_answer", lambda q, c: calls.append(("generate", c)) or "Oro: 50 puntos.")
+    monkeypatch.setattr(rag, "generate_answer", lambda q, c, **kwargs: calls.append(("generate", c)) or "Oro: 50 puntos.")
     monkeypatch.setattr(rag, "query", lambda *a: pytest.fail("No se debe llamar al RAG monolítico"))
     return chunks, calls
 
@@ -29,14 +29,15 @@ def test_retrieves_once_and_passes_context_to_generation(tmp_path, providers):
     assert calls == [("retrieve", "puntos Oro?"), ("generate", chunks)]
     trace = load_trace(tmp_path / "traces" / f"{run}.json")
     assert [e.node for e in trace.events] == ["receive_question", "classify_request", "retrieve_context", "generate_answer"]
-    assert next(e for e in trace.events if e.node == "retrieve_context").output["context"] == chunks
+    assert all(not e.output for e in trace.events)
+    assert trace.question == "[redacted]" and trace.answer is None
     assert trace.status == "completed"
 
 
 def test_empty_context_uses_distinct_node(tmp_path, providers, monkeypatch):
     monkeypatch.setattr(rag, "retrieve", lambda q: [])
     with open_service(tmp_path, mode="mock") as service:
-        _, run = service.query("No está en el corpus")
+        _, run = service.query("Procedimiento no disponible en el corpus")
     trace = load_trace(tmp_path / "traces" / f"{run}.json")
     assert trace.events[-1].node == "insufficient_context"
     assert providers[1] == [("generate", [])]
@@ -78,13 +79,13 @@ def test_checkpoints_survive_reopen(tmp_path, providers):
 
 
 def test_concurrent_runs_do_not_share_state(tmp_path, providers, monkeypatch):
-    monkeypatch.setattr(rag, "generate_answer", lambda q, c: q)
+    monkeypatch.setattr(rag, "generate_answer", lambda q, c, **kwargs: q)
     with open_service(tmp_path, mode="mock") as service:
         with ThreadPoolExecutor(max_workers=4) as pool:
-            results = list(pool.map(service.query, [f"Pregunta {i}" for i in range(8)]))
+            results = list(pool.map(service.query, [f"Ticket {i}" for i in range(8)]))
         assert len({run for _, run in results}) == 8
         for i, (answer, run) in enumerate(results):
-            assert answer == f"Pregunta {i}"
+            assert answer == f"Ticket {i}"
             assert service.graph.get_state({"configurable": {"thread_id": run}}).values["question"] == answer
 
 
@@ -99,7 +100,7 @@ def test_invalid_input_and_empty_model_answer(tmp_path, providers, monkeypatch):
     with open_service(tmp_path, mode="mock") as service:
         with pytest.raises(ValueError):
             service.query(123)
-        monkeypatch.setattr(rag, "generate_answer", lambda *a: "   ")
+        monkeypatch.setattr(rag, "generate_answer", lambda *a, **kw: "   ")
         with pytest.raises(AgentError):
             service.query("Oro?")
 
@@ -132,12 +133,13 @@ def test_runtime_starts_without_git_binary(tmp_path, monkeypatch):
 
 def test_retrieval_contract_failure_is_traced(tmp_path, monkeypatch):
     monkeypatch.setattr(rag, "retrieve", lambda q: [{"text": 42}])
+    monkeypatch.setattr(rag, "generate_answer", lambda q, c, **kw: "No tengo esa información.")
     with open_service(tmp_path, mode="mock") as service:
-        with pytest.raises(AgentError) as failure:
-            service.query("Oro?")
-    trace = load_trace(tmp_path / "traces" / f"{failure.value.run_id}.json")
-    assert trace.events[-1].node == "retrieve_context"
-    assert trace.status == "failed"
+        answer, run = service.query("Oro?")
+    trace = load_trace(tmp_path / "traces" / f"{run}.json")
+    assert answer == "No tengo esa información."
+    assert any(e["failure_type"] == "structural" for e in trace.guardrails)
+    assert trace.status == "completed"
 
 
 @pytest.fixture(autouse=True)
