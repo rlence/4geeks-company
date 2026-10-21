@@ -73,6 +73,19 @@ services:
     networks:
       - brasaland-net
 
+  nightly-job:
+    profiles: ["jobs"]
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+    command: ["python", "/app/scripts/nightly_export.py"]
+    env_file:
+      - .env
+    volumes:
+      - ./data/raw:/app/data/raw
+    networks:
+      - brasaland-net
+
 networks:
   brasaland-net:
     driver: bridge

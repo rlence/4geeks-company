@@ -38,6 +38,19 @@ def _seed_telemetry_events(client: FakeReportingClient) -> None:
 
 
 class TestWeeklyLocationPerformanceFlow:
+    def test_scheduled_run_is_recorded_without_changing_the_weekly_etl(self, monkeypatch, tmp_path):
+        fake_client = FakeReportingClient()
+        _seed_telemetry_events(fake_client)
+        monkeypatch.setattr(pipeline, "get_supabase_client", lambda: fake_client)
+        monkeypatch.setattr(pipeline, "EVAL_DIR", tmp_path)
+
+        result = pipeline.weekly_location_performance_flow(
+            week_start=WEEK_START, triggered_by="schedule"
+        )
+
+        assert result["records_loaded"] == 1
+        assert fake_client.rows("reporting", "pipeline_runs")[0]["triggered_by"] == "schedule"
+
     def test_loads_computed_rows_and_logs_a_completed_run(self, monkeypatch, tmp_path):
         fake_client = FakeReportingClient()
         _seed_telemetry_events(fake_client)

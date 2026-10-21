@@ -1,0 +1,4 @@
+# Instalar con el usuario autorizado a ejecutar Docker en un host con reloj UTC.
+# Sustituir /absolute/path/ricardo-select-company por la ruta real del checkout.
+# TARGET_DATE se omite para exportar ayer en UTC.
+15 1 * * * cd /absolute/path/ricardo-select-company && umask 077 && /usr/local/bin/docker compose run --rm nightly-job >> data/raw/nightly-export.log 2>&1

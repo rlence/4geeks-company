@@ -29,6 +29,11 @@ Swagger UI: `http://127.0.0.1:8000/docs`.
 | `SUPABASE_URL` | URL del proyecto Supabase (Project Settings → API) donde vive `telemetry_events`. Crea el proyecto y corre `sql/telemetry_events.sql` en el SQL Editor antes de arrancar la API. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Clave `service_role` (no `anon`) del mismo proyecto — la API inserta sin pasar por un usuario de Supabase Auth. |
 
+El job nocturno reutiliza estas dos variables en un proceso separado. Antes de
+activarlo, aplicar [`sql/job_runs.sql`](sql/job_runs.sql) y seguir la
+[guía de operación](../../docs/telemetry/nightly-job.md). `public.job_runs`
+registra el script; `reporting.pipeline_runs` registra el ETL de Prefect.
+
 ## Estructura
 
 ```
