@@ -1,12 +1,12 @@
-"""services/reporting/endpoints.py — los 3 endpoints de Hito 6 Parte 2:
-estado de la última corrida, disparo manual, y consulta de KPIs.
-"""
+"""Contratos HTTP de reporting, incluida la publicación asíncrona manual."""
 
 import sys
 from pathlib import Path
+from uuid import UUID
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "data" / "pipelines"))
 import pipeline  # noqa: E402
+import endpoints  # noqa: E402
 
 from main import app  # noqa: E402
 from reporting_fakes import FakeReportingClient  # noqa: E402
@@ -148,32 +148,28 @@ class TestGetWeeklyLocationPerformance:
 
 
 class TestTriggerPipelineRun:
-    def test_runs_the_flow_and_returns_its_result(self, client, monkeypatch, tmp_path):
-        fake = FakeReportingClient()
-        fake.seed(
-            "public",
-            "telemetry_events",
-            [
-                {
-                    "event_id": "a",
-                    "event_type": "inbound_order_created",
-                    "timestamp": "2026-09-08T10:00:00+00:00",
-                    "tags": {"location_id": 1, "country": "CO", "quantity": 10, "unit_cost": 5000},
-                }
-            ],
-        )
-        # El endpoint importa el flow directo desde data/pipelines/pipeline.py
-        # (no pasa por Depends/get_supabase_client) — se monkeypatchea el
-        # cliente del propio módulo pipeline, no el override de FastAPI.
-        monkeypatch.setattr(pipeline, "get_supabase_client", lambda: fake)
-        monkeypatch.setattr(pipeline, "EVAL_DIR", tmp_path)
+    def test_enqueues_a_date_without_running_the_flow(self, client, monkeypatch):
+        calls = []
+        monkeypatch.setattr(endpoints, "reserve_task", lambda task_id: calls.append(("reserve", task_id)))
+        monkeypatch.setattr(endpoints.celery_app, "send_task", lambda *args, **kwargs: calls.append((args, kwargs)))
+        monkeypatch.setattr(pipeline, "weekly_location_performance_flow", lambda **_: (_ for _ in ()).throw(AssertionError("flow ran in HTTP")))
+        response = client.post("/reporting/pipeline-runs", params={"week_start": "2026-09-07"})
+        assert response.status_code == 202
+        task_id = response.json()["task_id"]
+        UUID(task_id)
+        assert response.headers["location"] == f"/tasks/{task_id}"
+        assert calls[1][0] == ("reporting.weekly_report",)
+        assert calls[1][1]["args"] == ["2026-09-07"]
 
-        response = client.post(
-            "/reporting/pipeline-runs", params={"week_start": "2026-09-07"}
-        )
+    def test_rejects_non_monday_before_publishing(self, client, monkeypatch):
+        monkeypatch.setattr(endpoints, "reserve_task", lambda _: (_ for _ in ()).throw(AssertionError("published")))
+        assert client.post("/reporting/pipeline-runs", params={"week_start": "2026-09-08"}).status_code == 422
 
-        # El endpoint no acepta query params hoy — llama al flow con su
-        # semana por defecto; solo confirmamos que corre end-to-end.
-        assert response.status_code == 200
-        assert "records_loaded" in response.json()
-        assert len(fake.rows("reporting", "pipeline_runs")) == 1
+    def test_broker_failure_is_not_accepted(self, client, monkeypatch):
+        removed = []
+        monkeypatch.setattr(endpoints, "reserve_task", lambda _: None)
+        monkeypatch.setattr(endpoints, "remove_task", removed.append)
+        monkeypatch.setattr(endpoints.celery_app, "send_task", lambda *_args, **_kwargs: (_ for _ in ()).throw(ConnectionError("offline")))
+        response = client.post("/reporting/pipeline-runs", params={"week_start": "2026-09-07"})
+        assert response.status_code == 503
+        assert len(removed) == 1

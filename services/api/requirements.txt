@@ -8,6 +8,8 @@ alembic==1.19.2
     # via prefect
 amplitude-analytics==1.2.3
     # via prefect
+amqp==5.4.1
+    # via kombu
 annotated-doc==0.0.5
     # via
     #   fastapi
@@ -45,12 +47,18 @@ beartype==0.22.9
     # via
     #   py-key-value-aio
     #   py-key-value-shared
+billiard==4.3.1
+    # via celery
 burner-redis==0.1.7
     # via pydocket
 cachetools==7.1.8
     # via
     #   prefect
     #   py-key-value-aio
+celery==5.6.3
+    # via
+    #   api
+    #   flower
 certifi==2026.7.22
     # via
     #   apprise
@@ -64,8 +72,18 @@ charset-normalizer==3.5.1
 click==8.4.2
     # via
     #   apprise
+    #   celery
+    #   click-didyoumean
+    #   click-plugins
+    #   click-repl
     #   prefect
     #   uvicorn
+click-didyoumean==0.3.1
+    # via celery
+click-plugins==1.1.1.2
+    # via celery
+click-repl==0.4.1
+    # via celery
 cloudpickle==3.1.2
     # via
     #   prefect
@@ -119,6 +137,8 @@ fastapi==0.141.1
     #   api
     #   prefect
 fastmcp==2.14.7
+    # via api
+flower==2.2.0
     # via api
 fsspec==2026.7.0
     # via prefect
@@ -177,6 +197,7 @@ httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'
     # via httpx2
 humanize==4.16.0
     # via
+    #   flower
     #   jinja2-humanize-extension
     #   prefect
 hyperframe==6.1.0
@@ -227,6 +248,8 @@ jsonschema-specifications==2025.9.1
     # via jsonschema
 keyring==25.7.0
     # via py-key-value-aio
+kombu==5.6.2
+    # via celery
 langchain-core==1.6.5
     # via
     #   langchain-mcp-adapters
@@ -306,6 +329,7 @@ packaging==26.3
     # via
     #   deprecation
     #   fastmcp
+    #   kombu
     #   langchain-core
     #   langsmith
     #   prefect
@@ -329,8 +353,11 @@ prefect==3.8.5
     # via api
 prometheus-client==0.26.0
     # via
+    #   flower
     #   prefect
     #   pydocket
+prompt-toolkit==3.0.53
+    # via click-repl
 propcache==0.5.2
     # via yarl
 protobuf==7.36.2
@@ -396,6 +423,7 @@ pyperclip==1.11.0
     # via fastmcp
 python-dateutil==2.9.0.post0
     # via
+    #   celery
     #   dateparser
     #   pandas
     #   prefect
@@ -414,6 +442,7 @@ python-slugify==8.0.4
 pytz==2026.3.post1
     # via
     #   dateparser
+    #   flower
     #   prefect
 pywin32==312 ; sys_platform == 'win32'
     # via
@@ -437,6 +466,7 @@ realtime==2.31.0
     # via supabase
 redis==8.1.0
     # via
+    #   api
     #   fakeredis
     #   py-key-value-aio
     #   pydocket
@@ -533,6 +563,8 @@ tinydb==4.9.0
     # via api
 toml==0.10.2
     # via prefect
+tornado==6.6
+    # via flower
 truststore==0.10.4 ; sys_platform != 'emscripten'
     # via
     #   httpcore2
@@ -542,6 +574,7 @@ typer==0.27.2
 typing-extensions==4.16.0
     # via
     #   alembic
+    #   click-repl
     #   fastapi
     #   grpcio
     #   langchain-core
@@ -567,9 +600,10 @@ typing-inspection==0.4.2
     #   mcp
     #   pydantic
     #   pydantic-settings
-tzdata==2026.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
+tzdata==2026.3
     # via
     #   apprise
+    #   kombu
     #   pandas
     #   psycopg
     #   pydocket
@@ -577,6 +611,7 @@ tzdata==2026.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     #   whenever
 tzlocal==5.4.4
     # via
+    #   celery
     #   dateparser
     #   whenever
 uncalled-for==0.4.0
@@ -598,8 +633,15 @@ uvicorn==0.52.1
     #   prefect
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
+vine==5.1.0
+    # via
+    #   amqp
+    #   celery
+    #   kombu
 watchfiles==1.2.0
     # via uvicorn
+wcwidth==0.9.3
+    # via prompt-toolkit
 websockets==15.0.1
     # via
     #   fastmcp

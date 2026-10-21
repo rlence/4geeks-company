@@ -24,6 +24,9 @@ dependencies = [
     "fastmcp>=2.14,<3",
     "mcpauth==0.2.0b1",
     "langchain-mcp-adapters>=0.1,<1",
+    "celery>=5.6.3",
+    "redis>=8.1.0",
+    "flower>=2.2.0",
 ]
 
 [project.scripts]
@@ -57,6 +60,10 @@ only-include = [
     "incidents",
     "inventory",
     "supabase_client.py",
+    "celery_app.py",
+    "report_tasks.py",
+    "dead_letters.py",
+    "task_registry.py",
 ]
 
 [tool.pytest.ini_options]
