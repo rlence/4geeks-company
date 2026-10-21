@@ -8,3 +8,9 @@ Each subfolder or file under `data/pipelines/` should represent **one pipeline o
 - **Recommendation**: document pipelines as you add them—their goal, data sources and sinks, dependencies, and how to run them in development, testing, and production.
 
 > _Spanish version: [README.es.md](./README.es.md)._
+
+The existing `pipeline.py` supports `--week-start YYYY-MM-DD` (ISO Monday) and
+`--triggered-by schedule|manual`. `scripts/nightly_export.py` calls it nightly
+for the week containing the exported UTC day. It continues to read
+`telemetry_events` from Supabase, not the CSV backup. See
+[`docs/telemetry/nightly-job.md`](../../docs/telemetry/nightly-job.md).

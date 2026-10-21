@@ -19,6 +19,7 @@ services/reporting/endpoints.py):
     cd services/api && uv run python ../../data/pipelines/pipeline.py
 """
 
+import argparse
 import logging
 import os
 import sys
@@ -184,11 +185,17 @@ def snapshot_weekly_eval_flow(rows: list[dict], week_start: date) -> None:
 
 
 @flow(name="weekly_location_performance_flow")
-def weekly_location_performance_flow(week_start: date | None = None) -> dict:
+def weekly_location_performance_flow(
+    week_start: date | None = None, triggered_by: str = "manual"
+) -> dict:
     run_logger = get_run_logger()
     client = get_supabase_client()
 
     week_start = week_start or _previous_iso_week_start(datetime.now(timezone.utc).date())
+    if week_start.weekday() != 0:
+        raise ValueError("week_start must be an ISO Monday")
+    if triggered_by not in {"manual", "schedule"}:
+        raise ValueError("triggered_by must be manual or schedule")
     week_end = week_start + timedelta(days=7)
     started_at = datetime.now(timezone.utc)
 
@@ -197,7 +204,7 @@ def weekly_location_performance_flow(week_start: date | None = None) -> dict:
         week_start=week_start.isoformat(),
         started_at=started_at.isoformat(),
         status="running",
-        triggered_by="manual",
+        triggered_by=triggered_by,
     )
 
     try:
@@ -220,7 +227,7 @@ def weekly_location_performance_flow(week_start: date | None = None) -> dict:
             status="completed",
             records_extracted=len(events),
             records_loaded=stored,
-            triggered_by="manual",
+            triggered_by=triggered_by,
         )
         return {"week_start": week_start.isoformat(), "records_loaded": stored}
     except Exception as exc:
@@ -232,11 +239,19 @@ def weekly_location_performance_flow(week_start: date | None = None) -> dict:
             finished_at=datetime.now(timezone.utc).isoformat(),
             status="failed",
             error_message=str(exc),
-            triggered_by="manual",
+            triggered_by=triggered_by,
         )
         raise
 
 
 if __name__ == "__main__":
-    result = weekly_location_performance_flow()
+    parser = argparse.ArgumentParser(description="Pipeline semanal de desempeño de Brasaland")
+    parser.add_argument("--week-start", type=date.fromisoformat)
+    parser.add_argument("--triggered-by", choices=("manual", "schedule"), default="manual")
+    args = parser.parse_args()
+    if args.week_start is not None and args.week_start.weekday() != 0:
+        parser.error("--week-start debe ser un lunes ISO")
+    result = weekly_location_performance_flow(
+        week_start=args.week_start, triggered_by=args.triggered_by
+    )
     logger.info("weekly_location_performance_flow terminó: %s", result)

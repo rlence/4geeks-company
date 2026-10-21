@@ -15,8 +15,10 @@ COPY services/api/ .
 # build context de este Dockerfile es la raíz del repo, no ./services.
 COPY services/telemetry/ /app/services/telemetry
 COPY services/reporting/ /app/services/reporting
+COPY services/job_runner.py /app/services/job_runner.py
 COPY data/pipelines/ /app/data/pipelines
 COPY data/process/ /app/data/process
+COPY scripts/ /app/scripts
 # El corpus que indexa setup() (Hito 7). La API no lo lee en runtime
 # —solo retrieve()/query() contra Qdrant— pero viaja en la imagen para
 # poder re-indexar desde dentro del contenedor.

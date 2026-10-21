@@ -11,3 +11,6 @@ artifacts/agent-traces/
 
 artifacts/agent-tools-traces/
 artifacts/incidents-validation.json
+data/raw/telemetry_*.csv
+data/raw/.telemetry_*.tmp
+data/raw/nightly-export.log
