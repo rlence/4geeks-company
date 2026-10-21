@@ -50,6 +50,21 @@ services:
     networks:
       - brasaland-net
 
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-storage:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - brasaland-net
+
   api:
     build:
       context: .
@@ -57,7 +72,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - qdrant
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_healthy
     volumes:
       - ./services/api:/app/services/api
       - ./services/telemetry:/app/services/telemetry
@@ -70,6 +88,39 @@ services:
       - .env
     environment:
       MCP_URL: http://mcp:8010/mcp
+      REDIS_URL: redis://redis:6379/0
+    networks:
+      - brasaland-net
+
+  worker:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+    command: ["celery", "--app=celery_app:app", "worker", "--loglevel=INFO", "--queues=reporting"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data/eval:/app/data/eval
+    networks:
+      - brasaland-net
+
+  flower:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+    command: ["celery", "--app=celery_app:app", "flower", "--address=0.0.0.0", "--port=5555"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:5555:5555"
     networks:
       - brasaland-net
 
@@ -92,3 +143,4 @@ networks:
 
 volumes:
   qdrant-storage:
+  redis-storage:

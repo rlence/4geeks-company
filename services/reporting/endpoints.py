@@ -7,17 +7,20 @@ la invocación del flow importado desde data/pipelines/.
 """
 
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from supabase import Client
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "api"))
 from supabase_client import get_supabase_client  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "data" / "pipelines"))
-from pipeline import weekly_location_performance_flow  # noqa: E402
+from pipeline import _previous_iso_week_start  # noqa: E402
+from celery_app import app as celery_app  # noqa: E402
+from task_registry import remove_task, reserve_task  # noqa: E402
 
 router = APIRouter(prefix="/reporting", tags=["reporting"])
 
@@ -35,12 +38,27 @@ def get_latest_pipeline_run(supabase: Client = Depends(get_supabase_client)) -> 
     return response.data[0] if response.data else {}
 
 
-@router.post("/pipeline-runs")
-def trigger_pipeline_run(week_start: str | None = None) -> dict:
-    # week_start opcional: permite recalcular una semana específica ya
-    # publicada (evento tardío, corrección) en vez de solo la última.
-    parsed_week_start = date.fromisoformat(week_start) if week_start else None
-    return weekly_location_performance_flow(week_start=parsed_week_start)
+@router.post("/pipeline-runs", status_code=status.HTTP_202_ACCEPTED)
+def trigger_pipeline_run(response: Response, week_start: date | None = None) -> dict:
+    # Resolver la fecha ahora: si el worker empieza mañana, el pedido no cambia.
+    target = week_start or _previous_iso_week_start(datetime.now(timezone.utc).date())
+    if target.weekday() != 0:
+        raise HTTPException(422, "week_start must be an ISO Monday")
+    task_id = str(uuid4())
+    try:
+        reserve_task(task_id)
+        celery_app.send_task(
+            "reporting.weekly_report", args=[target.isoformat()],
+            task_id=task_id, queue="reporting",
+        )
+    except Exception as exc:
+        try:
+            remove_task(task_id)
+        except Exception:
+            pass
+        raise HTTPException(503, "task broker unavailable") from exc
+    response.headers["Location"] = f"/tasks/{task_id}"
+    return {"task_id": task_id}
 
 
 @router.get("/weekly-location-performance")

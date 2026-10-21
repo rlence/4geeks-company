@@ -21,6 +21,7 @@ from routes.auth import router as auth_router
 from routes.knowledge import router as knowledge_router
 from routes.suppliers import router as suppliers_router
 from routes.telemetry import router as telemetry_router
+from routes.tasks import router as tasks_router
 
 # services/reporting es un módulo plano sibling de services/api (mismo
 # mecanismo sys.path que services/telemetry, ver context/plans/hito6-part-2.md).
@@ -88,6 +89,7 @@ app.include_router(suppliers_router)
 app.include_router(auth_router)
 app.include_router(telemetry_router)
 app.include_router(reporting_router)
+app.include_router(tasks_router)
 app.include_router(knowledge_router)
 app.include_router(agent_router)
 app.include_router(incidents_router)

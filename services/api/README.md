@@ -90,11 +90,15 @@ seed.py           # SUPPLIERS_SEED + USERS_SEED, siembra idempotente
 ## Notas de negocio — Pipeline de Desempeño de Negocio (Hito 6, Parte 2)
 
 - `GET /reporting/pipeline-runs/latest` — estado/metadata de la corrida más reciente de `weekly_location_performance_flow` (`reporting.pipeline_runs`).
-- `POST /reporting/pipeline-runs?week_start=<opcional ISO date>` — dispara el flow real (importado desde `data/pipelines/pipeline.py`, no reimplementado). Sin `week_start`, calcula la semana ISO anterior a hoy.
+- `POST /reporting/pipeline-runs?week_start=<opcional lunes ISO>` — encola el flow real y devuelve `202` con `task_id` sin esperar el ETL. Sin `week_start`, fija la semana ISO anterior en el momento de publicar.
+- `GET /tasks/{task_id}` — estado `pending`, `started`, `success` o `failure` y resultado resumido cuando acaba. Los reintentos aparecen como `pending` con `retrying: true`.
 - `GET /reporting/weekly-location-performance?week_start=<opcional>` — filas de `reporting.weekly_location_performance` para esa semana; sin `week_start`, la más reciente con datos.
 - Requiere el schema `reporting` creado (`data/pipelines/sql/reporting_schema.sql`) **y** agregado a Project Settings → API → Exposed schemas en Supabase — PostgREST no sirve schemas fuera de `public` por defecto.
 - `country` viaja en `inbound_order_created`/`outbound_order_created`/`stock_waste_registered`/`stock_threshold_triggered` desde `Ingredient.country` (ya existía en el frontend). `unit_cost` es un input real y requerido en `InboundOrderForm` y en `OutboundOrderForm` cuando el motivo es `waste` — sin él no se puede calcular `total_purchase_cost`/`total_waste_cost`.
 - El pipeline no toca `services/telemetry/analysis.py` ni `GET /telemetry/report` — lee `telemetry_events` en modo solo lectura.
+
+El productor HTTP, Redis, worker y Flower del Proyecto 10 se explican en
+[`docs/reporting/async-tasks.md`](../../docs/reporting/async-tasks.md).
 
 
 ## Hito 8, parte 2 — Protección del agente
